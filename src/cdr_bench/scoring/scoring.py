@@ -318,11 +318,6 @@ class DRScorer:
         return dict(overlap_percentages)
 
     @staticmethod
-    def residual_variance(high_dim_distances, low_dim_distances):
-        corr = DRScorer.correlate_distances(high_dim_distances, low_dim_distances)
-        return 1 - corr ** 2
-
-    @staticmethod
     def correlate_distances(distances_high, distances_low, method="spearman"):
         distances_high_flat = distances_high.flatten()
         distances_low_flat = distances_low.flatten()
@@ -524,6 +519,7 @@ class DRScorer:
         Qglobal = np.sum(QNN[kmax - 1:-1]) / (m - kmax - 1)
         return QNN, LCMC, AUC, kmax, Qlocal, Qglobal, trust_ls, cont_ls
 
+    @staticmethod
     def tanimoto_int_similarity_matrix(v_a: np.ndarray, v_b: np.ndarray) -> np.ndarray:
         """
         Implement the Tanimoto similarity measure for integer matrices, comparing each vector in v_a against each in v_b.
@@ -552,40 +548,7 @@ class DRScorer:
 
         return similarity_matrix
 
-    @staticmethod
-    @njit(parallel=True, fastmath=True)
-    def tanimoto_int_similarity_matrix_numba(v_a: np.ndarray, v_b: np.ndarray) -> np.ndarray:
-        """
-        Implement the Tanimoto similarity measure for integer matrices, comparing each vector in v_a against each in v_b.
-
-        Parameters:
-        - v_a (np.ndarray): Numpy matrix where each row represents a vector a.
-        - v_b (np.ndarray): Numpy matrix where each row represents a vector b.
-
-        Returns:
-        - np.ndarray: Matrix of computed similarity scores, where element (i, j) is the similarity between row i of v_a and row j of v_b.
-        """
-
-        num_rows_a = v_a.shape[0]
-        num_rows_b = v_b.shape[0]
-        similarity_matrix = np.empty((num_rows_a, num_rows_b), dtype=np.float32)
-
-        sum_a_squared = np.sum(np.square(v_a), axis=1)
-        sum_b_squared = np.sum(np.square(v_b), axis=1)
-
-        for i in prange(num_rows_a):
-            for j in prange(num_rows_b):
-                numerator = np.dot(v_a[i], v_b[j])
-                denominator = sum_a_squared[i] + sum_b_squared[j] - numerator
-
-                if denominator == 0:
-                    similarity = 0.0
-                else:
-                    similarity = numerator / denominator
-
-                similarity_matrix[i, j] = similarity
-
-        return similarity_matrix
+    tanimoto_int_similarity_matrix_numba = staticmethod(tanimoto_int_similarity_matrix_numba)
 
     @staticmethod
     @njit(fastmath=True)
@@ -620,26 +583,7 @@ class DRScorer:
 
         return similarity
 
-    @staticmethod
-    @jit(nopython=True, parallel=True)
-    def euclidean_distance_square_numba(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
-        """
-        Calculate the squared Euclidean distance between each pair of vectors
-        in two arrays using Numba for optimization.
-        """
-        n_samples_1, n_features = x1.shape
-        n_samples_2 = x2.shape[0]
-        result = np.empty((n_samples_1, n_samples_2), dtype=np.float64)
-
-        for i in prange(n_samples_1):
-            for j in prange(n_samples_2):
-                dist_sq = 0.0
-                for k in prange(n_features):
-                    diff = x1[i, k] - x2[j, k]
-                    dist_sq += diff * diff
-                result[i, j] = dist_sq
-
-        return result
+    euclidean_distance_square_numba = staticmethod(euclidean_distance_square_numba)
 
     @staticmethod
     def plot_preservation_metrics(distances_high, coords_sets, k_values, thresholds):
@@ -893,9 +837,9 @@ def calculate_distance_matrix(data: np.ndarray, metric: str) -> np.ndarray:
         ValueError: If an unsupported similarity metric is provided.
     """
     if metric == 'euclidean':
-        return DRScorer.euclidean_distance_square_numba(data, data)
+        return euclidean_distance_square_numba(data, data)
     elif metric == 'tanimoto':
-        return 1 - DRScorer.tanimoto_int_similarity_matrix_numba(data, data)
+        return 1 - tanimoto_int_similarity_matrix_numba(data, data)
     else:
         raise ValueError(f"Unsupported similarity metric: {metric}")
 
@@ -916,9 +860,9 @@ def calculate_distance_2_matrices(data_1: np.ndarray, data_2: np.ndarray, metric
         ValueError: If an unsupported similarity metric is provided.
     """
     if metric == 'euclidean':
-        return DRScorer.euclidean_distance_square_numba(data_1, data_2)
+        return euclidean_distance_square_numba(data_1, data_2)
     elif metric == 'tanimoto':
-        return 1 - DRScorer.tanimoto_int_similarity_matrix_numba(data_1, data_2)
+        return 1 - tanimoto_int_similarity_matrix_numba(data_1, data_2)
     else:
         raise ValueError(f"Unsupported similarity metric: {metric}")
 
