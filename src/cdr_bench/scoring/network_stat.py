@@ -1,14 +1,12 @@
 import networkx as nx
+import numpy as np
 import pandas as pd
-import numpy as np
-from scipy.stats import entropy
 from collections import Counter
-from networkx.algorithms.community import greedy_modularity_communities
-from src.cdr_bench.scoring.scoring import tanimoto_int_similarity_matrix_numba
+from scipy.stats import entropy
 from typing import List, Tuple, Dict, Any
-import networkx as nx
-import numpy as np
 from numba import njit
+
+from src.cdr_bench.scoring.scoring import tanimoto_int_similarity_matrix_numba
 
 @njit
 def find_edges_above_threshold(similarity_matrix: np.ndarray, threshold: float) -> List[Tuple[int, int, float]]:
