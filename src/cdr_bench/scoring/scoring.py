@@ -66,6 +66,48 @@ def tanimoto_int_similarity_matrix_numba(v_a: np.ndarray, v_b: np.ndarray) -> np
     return similarity_matrix
 
 
+@njit(parallel=True, fastmath=True)
+def _apply_tanimoto_formula(dot, sum_sq_a, sum_sq_b, out):
+    """Element-wise Tanimoto: T(i,j) = dot(i,j) / (sq_a[i] + sq_b[j] - dot(i,j))."""
+    Na = dot.shape[0]
+    Nb = dot.shape[1]
+    for i in prange(Na):
+        sq_i = sum_sq_a[i]
+        for j in range(Nb):
+            n = dot[i, j]
+            d = sq_i + sum_sq_b[j] - n
+            if d != 0.0:
+                out[i, j] = n / d
+            else:
+                out[i, j] = np.float32(0.0)
+
+
+def tanimoto_similarity_matrix_blas(v_a: np.ndarray, v_b: np.ndarray) -> np.ndarray:
+    """Tanimoto similarity via BLAS SGEMM + numba element-wise conversion.
+
+    Drop-in replacement for ``tanimoto_int_similarity_matrix_numba``.
+    Delegates the dominant O(Na * Nb * D) dot-product to BLAS (SGEMM),
+    then applies the Tanimoto formula element-wise via a numba kernel.
+
+    Parameters
+    ----------
+    v_a : np.ndarray, shape (Na, D)
+    v_b : np.ndarray, shape (Nb, D)
+
+    Returns
+    -------
+    np.ndarray, shape (Na, Nb), dtype float32
+        Tanimoto similarity scores (identical output to the numba version).
+    """
+    v_a = np.ascontiguousarray(v_a, dtype=np.float32)
+    v_b = np.ascontiguousarray(v_b, dtype=np.float32)
+    dot = v_a @ v_b.T                                        # BLAS SGEMM
+    sum_sq_a = np.einsum("ij,ij->i", v_a, v_a)               # float32
+    sum_sq_b = np.einsum("ij,ij->i", v_b, v_b)               # float32
+    _apply_tanimoto_formula(dot, sum_sq_a, sum_sq_b, dot)     # in-place
+    return dot
+
+
 @njit(parallel=True)
 def compute_ranks_parallel(distances: np.ndarray) -> np.ndarray:
     """Compute rank matrix from a distance matrix using parallel row-wise argsort + scatter.
