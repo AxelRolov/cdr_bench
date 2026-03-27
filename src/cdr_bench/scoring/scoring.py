@@ -65,6 +65,153 @@ def tanimoto_int_similarity_matrix_numba(v_a: np.ndarray, v_b: np.ndarray) -> np
 
     return similarity_matrix
 
+
+@njit(parallel=True)
+def compute_ranks_parallel(distances: np.ndarray) -> np.ndarray:
+    """Compute rank matrix from a distance matrix using parallel row-wise argsort + scatter.
+
+    Equivalent to ``np.argsort(np.argsort(distances, axis=1), axis=1)`` but:
+      * Replaces the second argsort with an O(N) scatter per row.
+      * Parallelises across rows via ``prange``.
+      * Returns **int32** (sufficient for N < 2^31).
+
+    Parameters
+    ----------
+    distances : np.ndarray
+        Square distance matrix of shape (N, N).
+
+    Returns
+    -------
+    np.ndarray
+        Rank matrix of shape (N, N) with dtype int32.
+        ``ranks[i, j]`` is the rank of item *j* when sorting distances from item *i*
+        (rank 0 = closest = self).
+    """
+    N = distances.shape[0]
+    ranks = np.empty((N, N), dtype=np.int32)
+    for i in prange(N):
+        sorted_idx = np.argsort(distances[i])
+        for j in range(N):
+            ranks[i, sorted_idx[j]] = np.int32(j)
+    return ranks
+
+
+@njit(fastmath=True)
+def _coranking_qnn_histogram(ranks_high: np.ndarray, ranks_low: np.ndarray) -> np.ndarray:
+    """Build histogram of max(rank_high, rank_low) for non-self pairs.
+
+    hist[v] = number of (i, j) pairs with i != j where max(rh, rl) == v.
+    QNN can then be derived via cumulative sum.
+    """
+    N = ranks_high.shape[0]
+    hist = np.zeros(N, dtype=np.int64)
+    for i in range(N):
+        for j in range(N):
+            rh = ranks_high[i, j]
+            rl = ranks_low[i, j]
+            if rh > 0 and rl > 0:
+                v = rh if rh > rl else rl
+                hist[v] += 1
+    return hist
+
+
+@njit(parallel=True, fastmath=True)
+def _coranking_trust_cont(
+    ranks_high: np.ndarray,
+    ranks_low: np.ndarray,
+    k: int,
+    norm: float,
+) -> Tuple:
+    """Compute trustworthiness and continuity for a single k from rank matrices."""
+    N = ranks_high.shape[0]
+    tr_sum = 0.0
+    co_sum = 0.0
+    for i in prange(N):
+        local_tr = 0.0
+        local_co = 0.0
+        for j in range(N):
+            rh = ranks_high[i, j]
+            rl = ranks_low[i, j]
+            if rh >= k and rl >= 1 and rl <= k:
+                local_tr += rh - k
+            if rh >= 1 and rh <= k and rl >= k:
+                local_co += rl - k
+        tr_sum += local_tr
+        co_sum += local_co
+    return 1.0 - norm * tr_sum, 1.0 - norm * co_sum
+
+
+def coranking_measures_from_ranks(
+    ranks_high: np.ndarray,
+    ranks_low: np.ndarray,
+    k_neighbors: Optional[List[int]] = None,
+) -> Tuple:
+    """Compute all co-ranking quality metrics directly from rank matrices.
+
+    This is functionally equivalent to::
+
+        Q = DRScorer.fill_coranking_matrix_numba(N, N, ranks_high, ranks_low)
+        QNN, LCMC, AUC, kmax, Qlocal, Qglobal, T, C = DRScorer.coranking_measures(Q, k_neighbors)
+
+    but **never materialises the N×N co-ranking matrix Q**, reducing peak memory
+    from O(3 N²) to O(2 N²) (only the two rank matrices).
+
+    Parameters
+    ----------
+    ranks_high : np.ndarray, shape (N, N), dtype int32
+        Rank matrix in the ambient (high-dimensional) space.
+    ranks_low : np.ndarray, shape (N, N), dtype int32
+        Rank matrix in the latent (low-dimensional) space.
+    k_neighbors : list of int, optional
+        Neighbourhood sizes for trustworthiness / continuity (default [2, 5, 10, 25, 50]).
+
+    Returns
+    -------
+    tuple
+        (QNN, LCMC, AUC, kmax, Qlocal, Qglobal, trust_ls, cont_ls)
+        Same semantics as ``DRScorer.coranking_measures``.
+    """
+    if k_neighbors is None:
+        k_neighbors = [2, 5, 10, 25, 50]
+
+    N = ranks_high.shape[0]
+    m = N - 1  # exclude self (rank 0)
+
+    # --- QNN from histogram of max(rh, rl) ---
+    hist = _coranking_qnn_histogram(ranks_high, ranks_low)
+
+    QNN = np.zeros(m, dtype=np.float64)
+    cumsum = np.int64(0)
+    for k in range(1, N):
+        cumsum += hist[k]
+        if k <= m:
+            QNN[k - 1] = cumsum / (k * (m + 1))
+
+    LCMC = np.empty(m, dtype=np.float64)
+    for k in range(m):
+        LCMC[k] = QNN[k] - (k + 1) / m
+
+    AUC = float(np.mean(QNN))
+    kmax = int(np.argmax(LCMC)) + 1
+    Qlocal = float(np.sum(QNN[:kmax]) / kmax)
+    Qglobal = float(np.sum(QNN[kmax - 1 : -1]) / (m - kmax - 1))
+
+    # --- Trustworthiness / Continuity per k ---
+    # T/C normalization uses m_tc = N (full Q matrix size), not N-1
+    trust_ls = []
+    cont_ls = []
+    for k in k_neighbors:
+        if k < N / 2:
+            norm = 2.0 / (N * k * (2 * N - 3 * k - 1))
+        else:
+            norm = 2.0 / (N * (N - k) * (N - k - 1))
+        t, c = _coranking_trust_cont(ranks_high, ranks_low, k, norm)
+        trust_ls.append(t)
+        cont_ls.append(c)
+
+    return QNN, LCMC, AUC, kmax, Qlocal, Qglobal, trust_ls, cont_ls
+
+
 class DRScorer:
     """
     A class to score dimensionality reduction models.
