@@ -65,6 +65,26 @@ def tanimoto_int_similarity_matrix_numba(v_a: np.ndarray, v_b: np.ndarray) -> np
 
     return similarity_matrix
 
+@njit(fastmath=True)
+def tanimoto_vector_similarity_numba(v_a: np.ndarray, v_b: np.ndarray) -> float:
+    """
+    Implement the Tanimoto similarity measure for two integer vectors.
+
+    Parameters:
+    - v_a (np.ndarray): First vector.
+    - v_b (np.ndarray): Second vector.
+
+    Returns:
+    - float: Computed similarity score between the two vectors.
+    """
+    sum_a_squared = np.sum(np.square(v_a))
+    sum_b_squared = np.sum(np.square(v_b))
+    numerator = np.dot(v_a, v_b)
+    denominator = sum_a_squared + sum_b_squared - numerator
+    if denominator == 0:
+        return 0.0
+    return numerator / denominator
+
 class DRScorer:
     """
     A class to score dimensionality reduction models.
@@ -318,11 +338,6 @@ class DRScorer:
         return dict(overlap_percentages)
 
     @staticmethod
-    def residual_variance(high_dim_distances, low_dim_distances):
-        corr = DRScorer.correlate_distances(high_dim_distances, low_dim_distances)
-        return 1 - corr ** 2
-
-    @staticmethod
     def correlate_distances(distances_high, distances_low, method="spearman"):
         distances_high_flat = distances_high.flatten()
         distances_low_flat = distances_low.flatten()
@@ -438,21 +453,21 @@ class DRScorer:
 
     @staticmethod
     @njit(parallel=True, fastmath=True)
-    def calculate_trustworthiness(X: np.ndarray, k: int) -> float:
+    def calculate_trustworthiness(Q: np.ndarray, k: int) -> float:
         """
         Calculate the trustworthiness of a dimensionality reduction based on
         the positions of the nearest neighbors. proceedings.mlr.press / v4 / lee08a / lee08a.pdf
 
         Parameters:
-        - X (np.ndarray): A co-ranking matrix.
+        - Q (np.ndarray): A co-ranking matrix.
         - k (int): The number of nearest neighbors to consider.
 
         Returns:
         - float: The trustworthiness score, between 0 and 1.
         """
-        m = len(X)
+        m = len(Q)
         if k >= m:
-            raise ValueError("k must be less than the number of rows in X")
+            raise ValueError("k must be less than the number of rows in Q")
         tr_sum = 0
         if k < m / 2:
             norm_coeff = 2 / (m * k * (2 * m - 3 * k - 1))
@@ -460,27 +475,27 @@ class DRScorer:
             norm_coeff = 2 / (m * (m - k) * (m - k - 1))
         for i in prange(k, m):
             for j in prange(1, k + 1):
-                tr_sum += X[i, j] * (i - k)
+                tr_sum += Q[i, j] * (i - k)
         tr = 1 - norm_coeff * tr_sum
         return tr
 
     @staticmethod
     @njit(parallel=True, fastmath=True)
-    def calculate_continuity(X: np.ndarray, k: int) -> float:
+    def calculate_continuity(Q: np.ndarray, k: int) -> float:
         """
         Calculate the continuity of a dimensionality reduction based on
         the positions of the farthest neighbors. proceedings.mlr.press / v4 / lee08a / lee08a.pdf
 
         Parameters:
-        - X (np.ndarray): A co-ranking matrix.
+        - Q (np.ndarray): A co-ranking matrix.
         - k (int): The number of farthest neighbors to consider.
 
         Returns:
         - float: The continuity score, between 0 and 1.
         """
-        m = len(X)
+        m = len(Q)
         if k >= m:
-            raise ValueError("k must be less than the number of rows in X")
+            raise ValueError("k must be less than the number of rows in Q")
         cont_sum = 0
         if k < m / 2:
             norm_coeff = 2 / (m * k * (2 * m - 3 * k - 1))
@@ -488,7 +503,7 @@ class DRScorer:
             norm_coeff = 2 / (m * (m - k) * (m - k - 1))
         for i in prange(1, k + 1):
             for j in prange(k, m):
-                cont_sum += X[i, j] * (j - k)
+                cont_sum += Q[i, j] * (j - k)
         cont = 1 - norm_coeff * cont_sum
         return cont
 
@@ -513,8 +528,6 @@ class DRScorer:
         m = len(Q)
         QNN = np.zeros(m)
         LCMC = np.zeros(m)
-        trustworthiness = np.zeros(m - 1)  # trustworthiness
-        continuity = np.zeros(m - 1)  # continuity
         for k in range(m):
             QNN[k] = np.sum(Q[:k + 1, :k + 1]) / ((k + 1) * (m + 1))
             LCMC[k] = QNN[k] - (k + 1) / (m)
@@ -524,6 +537,7 @@ class DRScorer:
         Qglobal = np.sum(QNN[kmax - 1:-1]) / (m - kmax - 1)
         return QNN, LCMC, AUC, kmax, Qlocal, Qglobal, trust_ls, cont_ls
 
+    @staticmethod
     def tanimoto_int_similarity_matrix(v_a: np.ndarray, v_b: np.ndarray) -> np.ndarray:
         """
         Implement the Tanimoto similarity measure for integer matrices, comparing each vector in v_a against each in v_b.
@@ -552,94 +566,11 @@ class DRScorer:
 
         return similarity_matrix
 
-    @staticmethod
-    @njit(parallel=True, fastmath=True)
-    def tanimoto_int_similarity_matrix_numba(v_a: np.ndarray, v_b: np.ndarray) -> np.ndarray:
-        """
-        Implement the Tanimoto similarity measure for integer matrices, comparing each vector in v_a against each in v_b.
+    tanimoto_int_similarity_matrix_numba = staticmethod(tanimoto_int_similarity_matrix_numba)
 
-        Parameters:
-        - v_a (np.ndarray): Numpy matrix where each row represents a vector a.
-        - v_b (np.ndarray): Numpy matrix where each row represents a vector b.
+    tanimoto_vector_similarity_numba = staticmethod(tanimoto_vector_similarity_numba)
 
-        Returns:
-        - np.ndarray: Matrix of computed similarity scores, where element (i, j) is the similarity between row i of v_a and row j of v_b.
-        """
-
-        num_rows_a = v_a.shape[0]
-        num_rows_b = v_b.shape[0]
-        similarity_matrix = np.empty((num_rows_a, num_rows_b), dtype=np.float32)
-
-        sum_a_squared = np.sum(np.square(v_a), axis=1)
-        sum_b_squared = np.sum(np.square(v_b), axis=1)
-
-        for i in prange(num_rows_a):
-            for j in prange(num_rows_b):
-                numerator = np.dot(v_a[i], v_b[j])
-                denominator = sum_a_squared[i] + sum_b_squared[j] - numerator
-
-                if denominator == 0:
-                    similarity = 0.0
-                else:
-                    similarity = numerator / denominator
-
-                similarity_matrix[i, j] = similarity
-
-        return similarity_matrix
-
-    @staticmethod
-    @njit(fastmath=True)
-    def tanimoto_vector_similarity_numba(v_a: np.ndarray, v_b: np.ndarray) -> float:
-        """
-        Implement the Tanimoto similarity measure for two integer vectors.
-
-        Parameters:
-        - v_a (np.ndarray): First vector.
-        - v_b (np.ndarray): Second vector.
-
-        Returns:
-        - float: Computed similarity score between the two vectors.
-        """
-
-        # Calculate squared sums of each vector
-        sum_a_squared = np.sum(np.square(v_a))
-        sum_b_squared = np.sum(np.square(v_b))
-
-        # Calculate the dot product of the two vectors
-        numerator = np.dot(v_a, v_b)
-
-        # Calculate the denominator of the Tanimoto coefficient
-        denominator = sum_a_squared + sum_b_squared - numerator
-
-        # Handle the case where the denominator is zero
-        if denominator == 0:
-            return 0.0  # Avoid division by zero; implies no overlap
-
-        # Calculate Tanimoto similarity
-        similarity = numerator / denominator
-
-        return similarity
-
-    @staticmethod
-    @jit(nopython=True, parallel=True)
-    def euclidean_distance_square_numba(x1: np.ndarray, x2: np.ndarray) -> np.ndarray:
-        """
-        Calculate the squared Euclidean distance between each pair of vectors
-        in two arrays using Numba for optimization.
-        """
-        n_samples_1, n_features = x1.shape
-        n_samples_2 = x2.shape[0]
-        result = np.empty((n_samples_1, n_samples_2), dtype=np.float64)
-
-        for i in prange(n_samples_1):
-            for j in prange(n_samples_2):
-                dist_sq = 0.0
-                for k in prange(n_features):
-                    diff = x1[i, k] - x2[j, k]
-                    dist_sq += diff * diff
-                result[i, j] = dist_sq
-
-        return result
+    euclidean_distance_square_numba = staticmethod(euclidean_distance_square_numba)
 
     @staticmethod
     def plot_preservation_metrics(distances_high, coords_sets, k_values, thresholds):
@@ -893,9 +824,9 @@ def calculate_distance_matrix(data: np.ndarray, metric: str) -> np.ndarray:
         ValueError: If an unsupported similarity metric is provided.
     """
     if metric == 'euclidean':
-        return DRScorer.euclidean_distance_square_numba(data, data)
+        return euclidean_distance_square_numba(data, data)
     elif metric == 'tanimoto':
-        return 1 - DRScorer.tanimoto_int_similarity_matrix_numba(data, data)
+        return 1 - tanimoto_int_similarity_matrix_numba(data, data)
     else:
         raise ValueError(f"Unsupported similarity metric: {metric}")
 
@@ -916,9 +847,9 @@ def calculate_distance_2_matrices(data_1: np.ndarray, data_2: np.ndarray, metric
         ValueError: If an unsupported similarity metric is provided.
     """
     if metric == 'euclidean':
-        return DRScorer.euclidean_distance_square_numba(data_1, data_2)
+        return euclidean_distance_square_numba(data_1, data_2)
     elif metric == 'tanimoto':
-        return 1 - DRScorer.tanimoto_int_similarity_matrix_numba(data_1, data_2)
+        return 1 - tanimoto_int_similarity_matrix_numba(data_1, data_2)
     else:
         raise ValueError(f"Unsupported similarity metric: {metric}")
 

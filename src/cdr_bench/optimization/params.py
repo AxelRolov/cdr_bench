@@ -105,8 +105,10 @@ class GTMParams(DimReducerParams):
             ValueError: If n_components is not 2 or 3.
         """
         if n_components == 3:
-            return {
-            }
+            raise NotImplementedError(
+                "Default GTM parameters for n_components=3 are not yet defined. "
+                "Please provide explicit k, m, s, and regul values."
+            )
         elif n_components == 2:
             return {
                 'k': 15,
