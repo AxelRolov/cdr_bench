@@ -65,6 +65,26 @@ def tanimoto_int_similarity_matrix_numba(v_a: np.ndarray, v_b: np.ndarray) -> np
 
     return similarity_matrix
 
+@njit(fastmath=True)
+def tanimoto_vector_similarity_numba(v_a: np.ndarray, v_b: np.ndarray) -> float:
+    """
+    Implement the Tanimoto similarity measure for two integer vectors.
+
+    Parameters:
+    - v_a (np.ndarray): First vector.
+    - v_b (np.ndarray): Second vector.
+
+    Returns:
+    - float: Computed similarity score between the two vectors.
+    """
+    sum_a_squared = np.sum(np.square(v_a))
+    sum_b_squared = np.sum(np.square(v_b))
+    numerator = np.dot(v_a, v_b)
+    denominator = sum_a_squared + sum_b_squared - numerator
+    if denominator == 0:
+        return 0.0
+    return numerator / denominator
+
 class DRScorer:
     """
     A class to score dimensionality reduction models.
@@ -433,21 +453,21 @@ class DRScorer:
 
     @staticmethod
     @njit(parallel=True, fastmath=True)
-    def calculate_trustworthiness(X: np.ndarray, k: int) -> float:
+    def calculate_trustworthiness(Q: np.ndarray, k: int) -> float:
         """
         Calculate the trustworthiness of a dimensionality reduction based on
         the positions of the nearest neighbors. proceedings.mlr.press / v4 / lee08a / lee08a.pdf
 
         Parameters:
-        - X (np.ndarray): A co-ranking matrix.
+        - Q (np.ndarray): A co-ranking matrix.
         - k (int): The number of nearest neighbors to consider.
 
         Returns:
         - float: The trustworthiness score, between 0 and 1.
         """
-        m = len(X)
+        m = len(Q)
         if k >= m:
-            raise ValueError("k must be less than the number of rows in X")
+            raise ValueError("k must be less than the number of rows in Q")
         tr_sum = 0
         if k < m / 2:
             norm_coeff = 2 / (m * k * (2 * m - 3 * k - 1))
@@ -455,27 +475,27 @@ class DRScorer:
             norm_coeff = 2 / (m * (m - k) * (m - k - 1))
         for i in prange(k, m):
             for j in prange(1, k + 1):
-                tr_sum += X[i, j] * (i - k)
+                tr_sum += Q[i, j] * (i - k)
         tr = 1 - norm_coeff * tr_sum
         return tr
 
     @staticmethod
     @njit(parallel=True, fastmath=True)
-    def calculate_continuity(X: np.ndarray, k: int) -> float:
+    def calculate_continuity(Q: np.ndarray, k: int) -> float:
         """
         Calculate the continuity of a dimensionality reduction based on
         the positions of the farthest neighbors. proceedings.mlr.press / v4 / lee08a / lee08a.pdf
 
         Parameters:
-        - X (np.ndarray): A co-ranking matrix.
+        - Q (np.ndarray): A co-ranking matrix.
         - k (int): The number of farthest neighbors to consider.
 
         Returns:
         - float: The continuity score, between 0 and 1.
         """
-        m = len(X)
+        m = len(Q)
         if k >= m:
-            raise ValueError("k must be less than the number of rows in X")
+            raise ValueError("k must be less than the number of rows in Q")
         cont_sum = 0
         if k < m / 2:
             norm_coeff = 2 / (m * k * (2 * m - 3 * k - 1))
@@ -483,7 +503,7 @@ class DRScorer:
             norm_coeff = 2 / (m * (m - k) * (m - k - 1))
         for i in prange(1, k + 1):
             for j in prange(k, m):
-                cont_sum += X[i, j] * (j - k)
+                cont_sum += Q[i, j] * (j - k)
         cont = 1 - norm_coeff * cont_sum
         return cont
 
@@ -508,8 +528,6 @@ class DRScorer:
         m = len(Q)
         QNN = np.zeros(m)
         LCMC = np.zeros(m)
-        trustworthiness = np.zeros(m - 1)  # trustworthiness
-        continuity = np.zeros(m - 1)  # continuity
         for k in range(m):
             QNN[k] = np.sum(Q[:k + 1, :k + 1]) / ((k + 1) * (m + 1))
             LCMC[k] = QNN[k] - (k + 1) / (m)
@@ -550,38 +568,7 @@ class DRScorer:
 
     tanimoto_int_similarity_matrix_numba = staticmethod(tanimoto_int_similarity_matrix_numba)
 
-    @staticmethod
-    @njit(fastmath=True)
-    def tanimoto_vector_similarity_numba(v_a: np.ndarray, v_b: np.ndarray) -> float:
-        """
-        Implement the Tanimoto similarity measure for two integer vectors.
-
-        Parameters:
-        - v_a (np.ndarray): First vector.
-        - v_b (np.ndarray): Second vector.
-
-        Returns:
-        - float: Computed similarity score between the two vectors.
-        """
-
-        # Calculate squared sums of each vector
-        sum_a_squared = np.sum(np.square(v_a))
-        sum_b_squared = np.sum(np.square(v_b))
-
-        # Calculate the dot product of the two vectors
-        numerator = np.dot(v_a, v_b)
-
-        # Calculate the denominator of the Tanimoto coefficient
-        denominator = sum_a_squared + sum_b_squared - numerator
-
-        # Handle the case where the denominator is zero
-        if denominator == 0:
-            return 0.0  # Avoid division by zero; implies no overlap
-
-        # Calculate Tanimoto similarity
-        similarity = numerator / denominator
-
-        return similarity
+    tanimoto_vector_similarity_numba = staticmethod(tanimoto_vector_similarity_numba)
 
     euclidean_distance_square_numba = staticmethod(euclidean_distance_square_numba)
 
