@@ -143,84 +143,53 @@ class DRScorer:
         dimension space and the original high-dimensional space.
 
         Args:
-            X (np.ndarray): High-dimensional data.
+            X (np.ndarray): Low-dimensional coordinates.
             y (np.ndarray, optional): Target values (not used in this function).
 
         Returns:
             float: Overlap percentage score.
         """
-        k = self.scoring_params.n_neighbors
-
-        # Transform the data using the provided estimator
-        if self.scoring_params.low_dim_metric == 'euclidean':
-            X_transformed_dist = self.euclidean_distance_square_numba(X, X)
-        elif self.scoring_params.low_dim_metric == 'tanimoto':
-            X_transformed_dist = self.tanimoto_int_similarity_matrix_numba(X, X)
-        else:
-            raise ValueError(f"Unsupported low_dim_metric '{self.scoring_params.low_dim_metric}'")
-
-        # Calculate nearest neighbors in the transformed space
-        nn_transformed = NearestNeighbors(n_neighbors=k + 1, metric='precomputed').fit(X_transformed_dist)
-        _, indices_transformed = nn_transformed.kneighbors(X_transformed_dist, n_neighbors=k + 1)
-
-        # Calculate nearest neighbors in the original space using the provided distances
-        indices_original = self.scoring_params.ambient_dim_indices
-
-        # Calculate overlap
-        overlap_count = 0
-        N = len(X)
-        for idx in range(N):
-            set_transformed = set(indices_transformed[idx, 1:])
-            set_original = set(indices_original[idx, 1:])
-            overlap_count += len(set_transformed.intersection(set_original))
-
-        # Calculate overlap percentage
-        overlap_percentage = (overlap_count / (N * k)) * 100
+        per_point = self.overlap_scoring_list(X, y)
+        overlap_percentage = np.mean(per_point) * 100
         if self.scoring_params.normalize:
+            k = self.scoring_params.n_neighbors
+            N = len(X)
             overlap_percentage -= k / (N - 1) * 100
         return overlap_percentage
 
-    def overlap_scoring_list(self, X: np.ndarray, y: Union[np.ndarray, None] = None) -> float:
+    def overlap_scoring_list(self, X: np.ndarray, y: Union[np.ndarray, None] = None) -> List[float]:
         """
-        Calculates the overlap percentage between the nearest neighbors in the reduced
+        Calculates per-point overlap fraction between nearest neighbors in the reduced
         dimension space and the original high-dimensional space.
 
         Args:
-            X (np.ndarray): High-dimensional data.
+            X (np.ndarray): Low-dimensional coordinates.
             y (np.ndarray, optional): Target values (not used in this function).
 
         Returns:
-            float: Overlap percentage score.
+            List[float]: Per-point overlap fractions (0 to 1).
         """
         k = self.scoring_params.n_neighbors
 
-        # Transform the data using the provided estimator
         if self.scoring_params.low_dim_metric == 'euclidean':
-            X_transformed_dist = self.euclidean_distance_square_numba(X, X)
+            X_transformed_dist = euclidean_distance_square_numba(X, X)
         elif self.scoring_params.low_dim_metric == 'tanimoto':
-            X_transformed_dist = self.tanimoto_int_similarity_matrix_numba(X, X)
+            X_transformed_dist = tanimoto_int_similarity_matrix_numba(X, X)
         else:
             raise ValueError(f"Unsupported low_dim_metric '{self.scoring_params.low_dim_metric}'")
 
-        # Calculate nearest neighbors in the transformed space
         nn_transformed = NearestNeighbors(n_neighbors=k + 1, metric='precomputed').fit(X_transformed_dist)
         _, indices_transformed = nn_transformed.kneighbors(X_transformed_dist, n_neighbors=k + 1)
 
-        # Calculate nearest neighbors in the original space using the provided distances
         indices_original = self.scoring_params.ambient_dim_indices
 
-        # Calculate overlap
-        overlap_count_ls = []
         N = len(X)
+        overlap_count_ls = []
         for idx in range(N):
             set_transformed = set(indices_transformed[idx, 1:])
             set_original = set(indices_original[idx, 1:])
-            overlap_count_ls.append(len(set_transformed.intersection(set_original))/k)
+            overlap_count_ls.append(len(set_transformed.intersection(set_original)) / k)
 
-        # Calculate overlap percentage
-        #overlap_percentage = (overlap_count / (N * k)) * 100
-        #if self.scoring_params.normalize:
-        #    overlap_percentage -= k / (N - 1) * 100
         return overlap_count_ls
 
     @staticmethod
@@ -247,8 +216,6 @@ class DRScorer:
                     for idx in range(N):
                         set_i = set(nn_indices[i][idx, 1:])
                         set_j = set(nn_indices[j][idx, 1:])
-                        if len(set_i) > 50 or len(set_j) > 50:
-                            print(len(set_i), len(set_j), idx, i, j)
                         if exclude_duplicates:
                             new_pairs = {(min(a, b), max(a, b)) for a in set_i for b in set_j if a != b}
                             new_pairs.difference_update(pairs_seen)
@@ -278,64 +245,6 @@ class DRScorer:
             return overlap_percentages
             #overlap_percentages = np.mean(overlap_percentages)
         #, preservation_results if calculate_tanimoto_preservation else overlap_percentages
-
-    @staticmethod
-    def overlap_percentage_old(matrices: list, labels: list, k_values: list, normalize: bool = False,
-                               exclude_duplicates: bool = True) -> dict:
-        """
-        Compute the overlap percentages between multiple matrices using a vectorized approach.
-        Allows for custom labels for each matrix and an option to exclude duplicate pairs of compounds.
-
-        Parameters
-        ----------
-        matrices : list of numpy.ndarray
-            List of matrices to compare.
-        labels : list of str
-            Labels for each matrix.
-        k_values : list of int
-            Values of k to calculate nearest neighbors.
-        normalize : bool, optional
-            Whether to normalize the overlap percentages.
-        exclude_duplicates : bool, optional
-            Whether to exclude duplicate compound pairs in overlap calculations.
-
-        Returns
-        -------
-        dict
-            Dictionary with keys as tuple pairs of labels and values as overlap percentages.
-        """
-        if len(matrices) != len(labels):
-            raise ValueError("Each matrix must have a corresponding label.")
-
-        N = matrices[0].shape[0]
-        overlap_percentages = defaultdict(lambda: np.zeros(N))
-
-        nn_indices = [np.argsort(m, axis=1, kind='stable')[:, :k + 1] for m in matrices for k in k_values]
-        key_pairs = [(labels[i] + ' & ' + labels[j], k) for i in range(len(matrices)) for j in
-                     range(i + 1, len(matrices)) for k in k_values]
-
-        # Calculate overlaps
-        for idx in range(N):
-            pairs_seen = set()
-            for (pair_index, (i, j)) in enumerate(zip(range(len(matrices)), range(len(matrices))[1:])):
-                k = k_values[pair_index % len(k_values)]  # Match k to the correct index
-                set_i = set(nn_indices[pair_index][idx, :])
-                set_j = set(nn_indices[pair_index + 1][idx, :])
-
-                if exclude_duplicates:
-                    new_pairs = {(min(a, b), max(a, b)) for a in set_i for b in set_j if a != b}
-                    new_pairs.difference_update(pairs_seen)
-                    pairs_seen.update(new_pairs)
-                    intersection = len(new_pairs)
-                else:
-                    intersection = len(set_i.intersection(set_j))
-
-                key = (labels[i] + ' & ' + labels[j], k)
-                overlap_percentages[key][idx] = intersection / k * 100
-                if normalize:
-                    overlap_percentages[key][idx] -= k / (N - 1) * 100
-
-        return dict(overlap_percentages)
 
     @staticmethod
     def correlate_distances(distances_high, distances_low, method="spearman"):
