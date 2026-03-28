@@ -1,3 +1,4 @@
+import logging
 import pickle
 from pathlib import Path
 from typing import List, Union, Dict, Any, Tuple
@@ -7,80 +8,11 @@ import numpy as np
 import pandas as pd
 
 from collections import defaultdict
-from src.cdr_bench.scoring.scoring import calculate_distance_matrix
 
-#import rpy2.robjects as robjects
 import toml
 import os
 
-"""
-path = '../scoring/'
-
-def scagnostics(x, y): # TODO requires proper R installation
-    all_scags = {}
-    r_source = robjects.r['source']
-    r_source(os.path.join(path, 'get_scag.r'))
-    r_getname = robjects.globalenv['scags']
-    scags = r_getname(robjects.FloatVector(x), robjects.FloatVector(y))
-    all_scags['outlying'] = scags[0]
-    all_scags['skewed'] = scags[1]
-    all_scags['clumpy'] = scags[2]
-    all_scags['sparse'] = scags[3]
-    all_scags['striated'] = scags[4]
-    all_scags['convex'] = scags[5]
-    all_scags['skinny'] = scags[6]
-    all_scags['stringy'] = scags[7]
-    all_scags['monotonic'] = scags[8]
-    return all_scags
-"""
-
-def generate_charts_for_subdirectories(base_dir: str, methods_to_extract: List[str]) -> None:  # deal with R installation
-    """
-    Generate radar charts for each subdirectory in the base directory.
-
-    Parameters:
-    - base_dir: str, base directory containing subdirectories
-    - methods_to_extract: list, list of methods to extract
-    """
-    all_data = []
-    """
-    # Walk through the directory tree
-    for root, subdirs, _ in os.walk(base_dir):
-        # Only process directories with specific subdirectories
-        for subdir in subdirs:
-            subdir_path = os.path.join(root, subdir)
-            if os.path.basename(subdir_path) not in ['embed', 'mfp_r2_1024', 'maccs_keys']:
-                continue  # Skip irrelevant subdirectories
-
-            descriptor_set = os.path.basename(subdir_path)
-            print(subdir_path)
-
-            # Read optimization results
-            df, fp_array, results = read_optimization_results(
-                os.path.join(subdir_path, f'{descriptor_set}.h5'),
-                feature_name=descriptor_set,
-                method_names=methods_to_extract
-            )
-
-            scagnostic_data = {}
-
-            # Process each method
-            for method in methods_to_extract:
-                print(method)
-                scagnostic_measures = scagnostics(results[method]['coordinates'][:, 0], results[method]['coordinates'][:, 1])
-                scagnostic_data[method] = scagnostic_measures
-
-                for measure, value in scagnostic_measures.items():
-                    all_data.append({
-                        'value': value,
-                        'descriptor': descriptor_set,
-                        'dataset': root.split('/')[-1],
-                        'method': method,
-                        'measure': measure
-                    })
-    return all_data
-    """
-    return "Function needs proper R installation"
+logger = logging.getLogger(__name__)
 
 def check_hdf5_file_format(file_path):
     required_dataset_group = ['dataset', 'smi']
@@ -261,18 +193,7 @@ def save_dataframe_to_hdf5(df: pd.DataFrame, file_path: str, non_feature_columns
             for col in feature_columns:
                 features_group.create_dataset(col, data=np.array(df[col].tolist()))
 
-    print(f"DataFrame saved to HDF5 file at {file_path} with hierarchical structure.")
-
-
-def save_distances(X_transformed: np.ndarray, n_components: int, similarity_metric: str,
-                   dataset_output_dir: str):
-    dist_X = calculate_distance_matrix(X_transformed, similarity_metric)
-    dist_X_pca_embedded = calculate_distance_matrix(X_transformed[:, :n_components], similarity_metric)
-    with open(os.path.join(dataset_output_dir, 'X_HD_dist.pkl'), 'wb') as f:
-        pickle.dump(dist_X, f)
-    with open(os.path.join(dataset_output_dir, 'X_PCA_HD_dist.pkl'), 'wb') as f:
-        pickle.dump(dist_X_pca_embedded, f)
-    return dist_X, dist_X_pca_embedded
+    logger.info(f"DataFrame saved to HDF5 file at {file_path} with hierarchical structure.")
 
 
 def load_optimization_results(file_path: str):
@@ -538,4 +459,4 @@ def validate_config(config: dict) -> None:
     if config["sample_size"] <= 0:
         raise ValueError("sample_size must be a positive integer.")
 
-    print("Configuration file is valid.")
+    logger.info("Configuration file is valid.")

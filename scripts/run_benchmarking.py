@@ -240,8 +240,8 @@ def process_dataset(dataset_name: str, feature_name: str, dataset: pd.DataFrame,
             plot_optimization_results(dataset, val_dataset, methods, optimization_results, k_neighbors, feature_name,
                                       dataset_output_dir,
                                       with_sampling)
-    except Exception as e:
-        logging.info(f"Error processing {dataset_name} with feature set {feature_name}: {e}")
+    except Exception:
+        logging.exception(f"Error processing {dataset_name} with feature set {feature_name}")
 
 
 def process_validation_data(val_data_path: str) -> Tuple[Optional[pd.DataFrame], Dict[str, Any]]: # TODO change this to read_features_hdf5_dataframe

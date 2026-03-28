@@ -85,6 +85,276 @@ def tanimoto_vector_similarity_numba(v_a: np.ndarray, v_b: np.ndarray) -> float:
         return 0.0
     return numerator / denominator
 
+def correlate_distances(distances_high, distances_low, method="spearman"):
+    """Calculate correlation between flattened distance matrices."""
+    distances_high_flat = distances_high.flatten()
+    distances_low_flat = distances_low.flatten()
+
+    if method.lower() == "pearson":
+        corr, _ = pearsonr(distances_low_flat, distances_high_flat)
+    elif method.lower() == "spearman":
+        corr, _ = spearmanr(distances_low_flat, distances_high_flat)
+    else:
+        raise ValueError("Invalid method specified. Use 'Pearson' or 'Spearman'.")
+
+    return corr
+
+
+def get_ranks(distances):
+    """Convert pairwise distances to ranks using NumPy."""
+    return np.argsort(np.argsort(distances, axis=1, kind='stable'), axis=1, kind='stable')
+
+
+def calculate_distances(matrix_a, matrix_b=None, metric='euclidean'):
+    """Calculate and return the pairwise distance matrix between two matrices."""
+    if matrix_b is None:
+        matrix_b = matrix_a
+    return cdist(matrix_a, matrix_b, metric)
+
+
+def residual_variance(distances_high, distances_low, method="spearman"):
+    """Calculate residual variance (1 - r^2) between flattened distance matrices."""
+    corr = correlate_distances(distances_high, distances_low, method=method)
+    return 1 - corr ** 2
+
+
+@njit(parallel=True, fastmath=True)
+def fill_coranking_matrix_numba(N: int, k: int, ranks_high: np.ndarray, ranks_low: np.ndarray) -> np.ndarray:
+    """
+    Compute the co-ranking matrix using Numba for speedup, suitable for large datasets.
+
+    Parameters:
+        N (int): The number of samples.
+        k (int): The neighborhood size to consider.
+        ranks_high (np.ndarray): Array of ranks in the high-dimensional space.
+        ranks_low (np.ndarray): Array of ranks in the low-dimensional space.
+
+    Returns:
+        np.ndarray: A k x k co-ranking matrix.
+    """
+    Q = np.zeros((k, k))
+    for i in range(N):
+        for j in range(N):
+            rk_high = ranks_high[i, j]
+            rk_low = ranks_low[i, j]
+            if rk_high < k and rk_low < k:
+                Q[rk_high, rk_low] += 1
+    return Q
+
+
+def fill_coranking_matrix_numpy(k: int, ranks_high: np.ndarray, ranks_low: np.ndarray) -> np.ndarray:
+    """
+    Compute the co-ranking matrix using NumPy operations, which are efficient for smaller datasets.
+
+    Parameters:
+        k (int): The neighborhood size to consider.
+        ranks_high (np.ndarray): Array of ranks in the high-dimensional space.
+        ranks_low (np.ndarray): Array of ranks in the low-dimensional space.
+
+    Returns:
+        np.ndarray: A k x k co-ranking matrix.
+    """
+    Q = np.zeros((k, k))
+    mask = (ranks_high < k) & (ranks_low < k)
+    np.add.at(Q, (ranks_high[mask], ranks_low[mask]), 1)
+    return Q
+
+
+def coranking_matrix(distances_high: np.ndarray, distances_low: np.ndarray, k=None, use_numba=True) -> np.ndarray:
+    """
+    Compute a co-ranking matrix to compare the preservation of neighborhood relations between two different
+    representations of data.
+
+    Parameters:
+        distances_high (np.ndarray): Distance matrix in the high-dimensional space.
+        distances_low (np.ndarray): Distance matrix in the low-dimensional space.
+        k (int, optional): The neighborhood size to consider. Defaults to the number of samples if None.
+        use_numba (bool, optional): Flag to use Numba optimized function for large datasets. Defaults to True.
+
+    Returns:
+        np.ndarray: A k x k co-ranking matrix.
+    """
+    N = distances_high.shape[0]
+    k = k or N
+
+    ranks_high = np.argsort(np.argsort(distances_high, axis=1, kind='stable'), axis=1, kind='stable')
+    ranks_low = np.argsort(np.argsort(distances_low, axis=1, kind='stable'), axis=1, kind='stable')
+
+    if use_numba:
+        return fill_coranking_matrix_numba(N, k, ranks_high, ranks_low)
+    else:
+        return fill_coranking_matrix_numpy(k, ranks_high, ranks_low)
+
+
+@njit(parallel=True, fastmath=True)
+def calculate_trustworthiness(Q: np.ndarray, k: int) -> float:
+    """
+    Calculate the trustworthiness of a dimensionality reduction based on
+    the positions of the nearest neighbors. proceedings.mlr.press / v4 / lee08a / lee08a.pdf
+
+    Parameters:
+    - Q (np.ndarray): A co-ranking matrix.
+    - k (int): The number of nearest neighbors to consider.
+
+    Returns:
+    - float: The trustworthiness score, between 0 and 1.
+    """
+    m = len(Q)
+    if k >= m:
+        raise ValueError("k must be less than the number of rows in Q")
+    tr_sum = 0
+    if k < m / 2:
+        norm_coeff = 2 / (m * k * (2 * m - 3 * k - 1))
+    else:
+        norm_coeff = 2 / (m * (m - k) * (m - k - 1))
+    for i in prange(k, m):
+        for j in prange(1, k + 1):
+            tr_sum += Q[i, j] * (i - k)
+    return 1 - norm_coeff * tr_sum
+
+
+@njit(parallel=True, fastmath=True)
+def calculate_continuity(Q: np.ndarray, k: int) -> float:
+    """
+    Calculate the continuity of a dimensionality reduction based on
+    the positions of the farthest neighbors. proceedings.mlr.press / v4 / lee08a / lee08a.pdf
+
+    Parameters:
+    - Q (np.ndarray): A co-ranking matrix.
+    - k (int): The number of farthest neighbors to consider.
+
+    Returns:
+    - float: The continuity score, between 0 and 1.
+    """
+    m = len(Q)
+    if k >= m:
+        raise ValueError("k must be less than the number of rows in Q")
+    cont_sum = 0
+    if k < m / 2:
+        norm_coeff = 2 / (m * k * (2 * m - 3 * k - 1))
+    else:
+        norm_coeff = 2 / (m * (m - k) * (m - k - 1))
+    for i in prange(1, k + 1):
+        for j in prange(k, m):
+            cont_sum += Q[i, j] * (j - k)
+    return 1 - norm_coeff * cont_sum
+
+
+def coranking_measures(Q, k_neighbors=None):
+    """
+    Analyze the co-ranking matrix to compute various metrics such as AUC, Qlocal, and Qglobal.
+    """
+    if k_neighbors is None:
+        k_neighbors = [2, 5, 10, 25, 50]
+    if Q is None:
+        raise ValueError("Co-ranking matrix not computed or set.")
+    trust_ls = []
+    cont_ls = []
+    for k in k_neighbors:
+        trust_ls.append(calculate_trustworthiness(Q, k=k))
+        cont_ls.append(calculate_continuity(Q, k=k))
+
+    Q_inner = Q[1:, 1:]  # Exclude the first row and column for analysis
+    m = len(Q_inner)
+    QNN = np.zeros(m)
+    LCMC = np.zeros(m)
+    for k in range(m):
+        QNN[k] = np.sum(Q_inner[:k + 1, :k + 1]) / ((k + 1) * (m + 1))
+        LCMC[k] = QNN[k] - (k + 1) / (m)
+    AUC = np.mean(QNN)
+    kmax = np.argmax(LCMC) + 1
+    Qlocal = np.sum(QNN[:kmax]) / (kmax)
+    Qglobal = np.sum(QNN[kmax - 1:-1]) / (m - kmax - 1)
+    return QNN, LCMC, AUC, kmax, Qlocal, Qglobal, trust_ls, cont_ls
+
+
+def tanimoto_int_similarity_matrix(v_a: np.ndarray, v_b: np.ndarray) -> np.ndarray:
+    """
+    Implement the Tanimoto similarity measure for integer matrices using NumPy (non-Numba fallback).
+
+    :param v_a: Numpy matrix where each row represents a vector a.
+    :param v_b: Numpy matrix where each row represents a vector b.
+    :return: Matrix of computed similarity scores.
+    """
+    v_a = np.asarray(v_a)
+    v_b = np.asarray(v_b)
+
+    numerator_matrix = np.dot(v_a, v_b.T)
+    sum_a_squared = np.sum(np.square(v_a), axis=1).reshape(-1, 1)
+    sum_b_squared = np.sum(np.square(v_b), axis=1).reshape(1, -1)
+    denominator_matrix = sum_a_squared + sum_b_squared - numerator_matrix
+
+    denominator_matrix[denominator_matrix == 0] = 1
+    return numerator_matrix / denominator_matrix
+
+
+def plot_preservation_metrics(distances_high, coords_sets, k_values, thresholds):
+    """
+    Plots the mean preservation of high-dimensional neighbors across different k values and thresholds
+    for various dimensionality reduction techniques.
+
+    Parameters:
+        distances_high (numpy.ndarray): A similarity matrix of compounds.
+        coords_sets (dict): A dictionary of coordinate arrays for different methods.
+        k_values (list): A list of integers representing different k values to test.
+        thresholds (list): A list of float representing different thresholds for neighbor similarity.
+    """
+    colors = {'PCA': 'red', 'UMAP': 'blue', 'GTM': 'green', 't-SNE': 'purple'}
+    line_styles = {0.7: '-', 0.8: '--', 0.9: 'dotted'}
+    marker_styles = {0.7: 'o', 0.8: 's', 0.9: '^'}
+
+    plt.figure(figsize=(14, 8))
+    compounds_with_neighbors_text = {}
+    distances_high = np.tril(distances_high, k=-1)
+    for coords_label, coords in coords_sets.items():
+        for threshold in thresholds:
+            mean_preservations = []
+            indices = np.where(distances_high >= threshold)
+            combined = np.concatenate(indices)
+            compounds_with_neighbors_text[threshold] = len(list(set(combined)))
+
+            for k in k_values:
+                neighbor_model = NearestNeighbors(n_neighbors=k + 1).fit(coords)
+                distances, indices = neighbor_model.kneighbors(coords)
+
+                indices = indices[:, 1:]
+                low_dim_neighbors_sets = [set(row) for row in indices]
+
+                preservation_percentages = []
+
+                for idx in range(distances_high.shape[0]):
+                    high_dim_neighbors_indices = np.where(distances_high[idx, :] >= threshold)[0]
+                    if high_dim_neighbors_indices.size > 0:
+                        low_dim_neighbors = low_dim_neighbors_sets[idx]
+                        preserved_neighbors_count = sum(
+                            neighbor in low_dim_neighbors for neighbor in high_dim_neighbors_indices)
+                        total_high_dim_neighbors = len(high_dim_neighbors_indices)
+
+                        if total_high_dim_neighbors > 0:
+                            preservation_percentage = (preserved_neighbors_count / total_high_dim_neighbors) * 100
+                            preservation_percentages.append(preservation_percentage)
+
+                if preservation_percentages:
+                    mean_preservations.append(np.mean(preservation_percentages))
+                else:
+                    mean_preservations.append(0)
+
+            plt.plot(k_values, mean_preservations, marker=marker_styles[threshold],
+                     label=f'{coords_label} (threshold {threshold})',
+                     color=colors[coords_label], linestyle=line_styles[threshold])
+
+    for i, (threshold, count) in enumerate(compounds_with_neighbors_text.items()):
+        plt.text(max(k_values) - 10, i * 3.5, f'Thresh {threshold}: {count} compounds', verticalalignment='top',
+                 horizontalalignment='left')
+
+    plt.title('Mean Preservation of High-Dimensional Neighbors Across Different k Values and Thresholds')
+    plt.xlabel('k (Number of Low-Dimensional Neighbors)')
+    plt.ylabel('Mean Preservation Percentage (%)')
+    plt.legend(loc='upper right')
+    plt.grid(True)
+    plt.show()
+
+
 class DRScorer:
     """
     A class to score dimensionality reduction models.
@@ -92,8 +362,6 @@ class DRScorer:
     Attributes:
         estimator (BaseEstimator): Dimensionality reduction model.
         scoring_params (ScoringParams): Parameters for scoring.
-        overlap (bool): Flag to use overlap scoring.
-        topology (bool): Flag to use topology scoring.
     """
 
     def __init__(self, estimator: BaseEstimator, scoring_params: ScoringParams):
@@ -143,84 +411,53 @@ class DRScorer:
         dimension space and the original high-dimensional space.
 
         Args:
-            X (np.ndarray): High-dimensional data.
+            X (np.ndarray): Low-dimensional coordinates.
             y (np.ndarray, optional): Target values (not used in this function).
 
         Returns:
             float: Overlap percentage score.
         """
-        k = self.scoring_params.n_neighbors
-
-        # Transform the data using the provided estimator
-        if self.scoring_params.low_dim_metric == 'euclidean':
-            X_transformed_dist = self.euclidean_distance_square_numba(X, X)
-        elif self.scoring_params.low_dim_metric == 'tanimoto':
-            X_transformed_dist = self.tanimoto_int_similarity_matrix_numba(X, X)
-        else:
-            raise ValueError(f"Unsupported low_dim_metric '{self.scoring_params.low_dim_metric}'")
-
-        # Calculate nearest neighbors in the transformed space
-        nn_transformed = NearestNeighbors(n_neighbors=k + 1, metric='precomputed').fit(X_transformed_dist)
-        _, indices_transformed = nn_transformed.kneighbors(X_transformed_dist, n_neighbors=k + 1)
-
-        # Calculate nearest neighbors in the original space using the provided distances
-        indices_original = self.scoring_params.ambient_dim_indices
-
-        # Calculate overlap
-        overlap_count = 0
-        N = len(X)
-        for idx in range(N):
-            set_transformed = set(indices_transformed[idx, 1:])
-            set_original = set(indices_original[idx, 1:])
-            overlap_count += len(set_transformed.intersection(set_original))
-
-        # Calculate overlap percentage
-        overlap_percentage = (overlap_count / (N * k)) * 100
+        per_point = self.overlap_scoring_list(X, y)
+        overlap_percentage = np.mean(per_point) * 100
         if self.scoring_params.normalize:
+            k = self.scoring_params.n_neighbors
+            N = len(X)
             overlap_percentage -= k / (N - 1) * 100
         return overlap_percentage
 
-    def overlap_scoring_list(self, X: np.ndarray, y: Union[np.ndarray, None] = None) -> float:
+    def overlap_scoring_list(self, X: np.ndarray, y: Union[np.ndarray, None] = None) -> List[float]:
         """
-        Calculates the overlap percentage between the nearest neighbors in the reduced
+        Calculates per-point overlap fraction between nearest neighbors in the reduced
         dimension space and the original high-dimensional space.
 
         Args:
-            X (np.ndarray): High-dimensional data.
+            X (np.ndarray): Low-dimensional coordinates.
             y (np.ndarray, optional): Target values (not used in this function).
 
         Returns:
-            float: Overlap percentage score.
+            List[float]: Per-point overlap fractions (0 to 1).
         """
         k = self.scoring_params.n_neighbors
 
-        # Transform the data using the provided estimator
         if self.scoring_params.low_dim_metric == 'euclidean':
-            X_transformed_dist = self.euclidean_distance_square_numba(X, X)
+            X_transformed_dist = euclidean_distance_square_numba(X, X)
         elif self.scoring_params.low_dim_metric == 'tanimoto':
-            X_transformed_dist = self.tanimoto_int_similarity_matrix_numba(X, X)
+            X_transformed_dist = tanimoto_int_similarity_matrix_numba(X, X)
         else:
             raise ValueError(f"Unsupported low_dim_metric '{self.scoring_params.low_dim_metric}'")
 
-        # Calculate nearest neighbors in the transformed space
         nn_transformed = NearestNeighbors(n_neighbors=k + 1, metric='precomputed').fit(X_transformed_dist)
         _, indices_transformed = nn_transformed.kneighbors(X_transformed_dist, n_neighbors=k + 1)
 
-        # Calculate nearest neighbors in the original space using the provided distances
         indices_original = self.scoring_params.ambient_dim_indices
 
-        # Calculate overlap
-        overlap_count_ls = []
         N = len(X)
+        overlap_count_ls = []
         for idx in range(N):
             set_transformed = set(indices_transformed[idx, 1:])
             set_original = set(indices_original[idx, 1:])
-            overlap_count_ls.append(len(set_transformed.intersection(set_original))/k)
+            overlap_count_ls.append(len(set_transformed.intersection(set_original)) / k)
 
-        # Calculate overlap percentage
-        #overlap_percentage = (overlap_count / (N * k)) * 100
-        #if self.scoring_params.normalize:
-        #    overlap_percentage -= k / (N - 1) * 100
         return overlap_count_ls
 
     @staticmethod
@@ -247,8 +484,6 @@ class DRScorer:
                     for idx in range(N):
                         set_i = set(nn_indices[i][idx, 1:])
                         set_j = set(nn_indices[j][idx, 1:])
-                        if len(set_i) > 50 or len(set_j) > 50:
-                            print(len(set_i), len(set_j), idx, i, j)
                         if exclude_duplicates:
                             new_pairs = {(min(a, b), max(a, b)) for a in set_i for b in set_j if a != b}
                             new_pairs.difference_update(pairs_seen)
@@ -279,378 +514,22 @@ class DRScorer:
             #overlap_percentages = np.mean(overlap_percentages)
         #, preservation_results if calculate_tanimoto_preservation else overlap_percentages
 
-    @staticmethod
-    def overlap_percentage_old(matrices: list, labels: list, k_values: list, normalize: bool = False,
-                               exclude_duplicates: bool = True) -> dict:
-        """
-        Compute the overlap percentages between multiple matrices using a vectorized approach.
-        Allows for custom labels for each matrix and an option to exclude duplicate pairs of compounds.
-
-        Parameters
-        ----------
-        matrices : list of numpy.ndarray
-            List of matrices to compare.
-        labels : list of str
-            Labels for each matrix.
-        k_values : list of int
-            Values of k to calculate nearest neighbors.
-        normalize : bool, optional
-            Whether to normalize the overlap percentages.
-        exclude_duplicates : bool, optional
-            Whether to exclude duplicate compound pairs in overlap calculations.
-
-        Returns
-        -------
-        dict
-            Dictionary with keys as tuple pairs of labels and values as overlap percentages.
-        """
-        if len(matrices) != len(labels):
-            raise ValueError("Each matrix must have a corresponding label.")
-
-        N = matrices[0].shape[0]
-        overlap_percentages = defaultdict(lambda: np.zeros(N))
-
-        nn_indices = [np.argsort(m, axis=1, kind='stable')[:, :k + 1] for m in matrices for k in k_values]
-        key_pairs = [(labels[i] + ' & ' + labels[j], k) for i in range(len(matrices)) for j in
-                     range(i + 1, len(matrices)) for k in k_values]
-
-        # Calculate overlaps
-        for idx in range(N):
-            pairs_seen = set()
-            for (pair_index, (i, j)) in enumerate(zip(range(len(matrices)), range(len(matrices))[1:])):
-                k = k_values[pair_index % len(k_values)]  # Match k to the correct index
-                set_i = set(nn_indices[pair_index][idx, :])
-                set_j = set(nn_indices[pair_index + 1][idx, :])
-
-                if exclude_duplicates:
-                    new_pairs = {(min(a, b), max(a, b)) for a in set_i for b in set_j if a != b}
-                    new_pairs.difference_update(pairs_seen)
-                    pairs_seen.update(new_pairs)
-                    intersection = len(new_pairs)
-                else:
-                    intersection = len(set_i.intersection(set_j))
-
-                key = (labels[i] + ' & ' + labels[j], k)
-                overlap_percentages[key][idx] = intersection / k * 100
-                if normalize:
-                    overlap_percentages[key][idx] -= k / (N - 1) * 100
-
-        return dict(overlap_percentages)
-
-    @staticmethod
-    def correlate_distances(distances_high, distances_low, method="spearman"):
-        distances_high_flat = distances_high.flatten()
-        distances_low_flat = distances_low.flatten()
-
-        if method == "pearson":
-            corr, _ = pearsonr(distances_low_flat, distances_high_flat)
-        elif method == "spearman":
-            corr, _ = spearmanr(distances_low_flat, distances_high_flat)
-        else:
-            raise ValueError("Invalid method specified. Use 'Pearson' or 'Spearman'.")
-
-        return corr
-
-    @staticmethod
-    def get_ranks(distances):
-        """
-        Convert pairwise distances to ranks using NumPy.
-        """
-        ranks = np.argsort(np.argsort(distances, axis=1, kind='stable'), axis=1, kind='stable')
-        return ranks
-
-    @staticmethod
-    def calculate_distances(matrix_a, matrix_b=None, metric='euclidean'):
-        """ Calculate and return the pairwise distance matrix between two matrices """
-        if matrix_b is None:
-            matrix_b = matrix_a
-        return cdist(matrix_a, matrix_b, metric)
-
-    @staticmethod
-    def residual_variance(distances_high, distances_low, method="spearman"):
-        """ Calculate the correlation between flattened distance matrices. """
-        distances_high_flat = distances_high.flatten()
-        distances_low_flat = distances_low.flatten()
-
-        if method.lower() == "pearson":
-            corr, _ = pearsonr(distances_low_flat, distances_high_flat)
-        elif method.lower() == "spearman":
-            corr, _ = spearmanr(distances_low_flat, distances_high_flat)
-        else:
-            raise ValueError("Invalid method specified. Use 'Pearson' or 'Spearman'.")
-        residual = 1 - corr ** 2
-        return residual
-
-    @staticmethod
-    @njit(parallel=True, fastmath=True)
-    def fill_coranking_matrix_numba(N: int, k: int, ranks_high: np.ndarray, ranks_low: np.ndarray) -> np.ndarray:
-        """
-        Compute the co-ranking matrix using Numba for speedup, suitable for large datasets.
-
-        Parameters:
-            N (int): The number of samples.
-            k (int): The neighborhood size to consider.
-            ranks_high (np.ndarray): Array of ranks in the high-dimensional space.
-            ranks_low (np.ndarray): Array of ranks in the low-dimensional space.
-
-        Returns:
-            np.ndarray: A k x k co-ranking matrix.
-        """
-        Q = np.zeros((k, k))
-        for i in range(N):
-            for j in range(N):
-                rk_high = ranks_high[i, j]
-                rk_low = ranks_low[i, j]
-                if rk_high < k and rk_low < k:
-                    Q[rk_high, rk_low] += 1
-        return Q
-
-    @staticmethod
-    def fill_coranking_matrix_numpy(k: int, ranks_high: np.ndarray, ranks_low: np.ndarray) -> np.ndarray:
-        """
-        Compute the co-ranking matrix using NumPy operations, which are efficient for smaller datasets.
-
-        Parameters:
-            k (int): The neighborhood size to consider.
-            ranks_high (np.ndarray): Array of ranks in the high-dimensional space.
-            ranks_low (np.ndarray): Array of ranks in the low-dimensional space.
-
-        Returns:
-            np.ndarray: A k x k co-ranking matrix.
-        """
-        Q = np.zeros((k, k))
-        mask = (ranks_high < k) & (ranks_low < k)
-        np.add.at(Q, (ranks_high[mask], ranks_low[mask]), 1)
-        return Q
-
-    @staticmethod
-    def coranking_matrix(distances_high: np.ndarray, distances_low: np.ndarray, k=None, use_numba=True) -> np.ndarray:
-        """
-        Compute a co-ranking matrix to compare the preservation of neighborhood relations between two different
-        representations of data.
-
-        Parameters:
-            distances_high (np.ndarray): Distance matrix in the high-dimensional space.
-            distances_low (np.ndarray): Distance matrix in the low-dimensional space.
-            k (int, optional): The neighborhood size to consider. Defaults to the number of samples if None.
-            use_numba (bool, optional): Flag to use Numba optimized function for large datasets. Defaults to True.
-
-        Returns:
-            np.ndarray: A k x k co-ranking matrix.
-        """
-        N = distances_high.shape[0]
-        k = k or N  # Default to N if k is None
-
-        # Compute ranks
-        ranks_high = np.argsort(np.argsort(distances_high, axis=1, kind='stable'), axis=1, kind='stable')
-        ranks_low = np.argsort(np.argsort(distances_low, axis=1, kind='stable'), axis=1, kind='stable')
-
-        # Fill in the matrix
-        if use_numba:
-            return DRScorer.fill_coranking_matrix_numba(N, k, ranks_high, ranks_low)
-        else:
-            return DRScorer.fill_coranking_matrix_numpy(k, ranks_high, ranks_low)
-
-    @staticmethod
-    @njit(parallel=True, fastmath=True)
-    def calculate_trustworthiness(Q: np.ndarray, k: int) -> float:
-        """
-        Calculate the trustworthiness of a dimensionality reduction based on
-        the positions of the nearest neighbors. proceedings.mlr.press / v4 / lee08a / lee08a.pdf
-
-        Parameters:
-        - Q (np.ndarray): A co-ranking matrix.
-        - k (int): The number of nearest neighbors to consider.
-
-        Returns:
-        - float: The trustworthiness score, between 0 and 1.
-        """
-        m = len(Q)
-        if k >= m:
-            raise ValueError("k must be less than the number of rows in Q")
-        tr_sum = 0
-        if k < m / 2:
-            norm_coeff = 2 / (m * k * (2 * m - 3 * k - 1))
-        else:
-            norm_coeff = 2 / (m * (m - k) * (m - k - 1))
-        for i in prange(k, m):
-            for j in prange(1, k + 1):
-                tr_sum += Q[i, j] * (i - k)
-        tr = 1 - norm_coeff * tr_sum
-        return tr
-
-    @staticmethod
-    @njit(parallel=True, fastmath=True)
-    def calculate_continuity(Q: np.ndarray, k: int) -> float:
-        """
-        Calculate the continuity of a dimensionality reduction based on
-        the positions of the farthest neighbors. proceedings.mlr.press / v4 / lee08a / lee08a.pdf
-
-        Parameters:
-        - Q (np.ndarray): A co-ranking matrix.
-        - k (int): The number of farthest neighbors to consider.
-
-        Returns:
-        - float: The continuity score, between 0 and 1.
-        """
-        m = len(Q)
-        if k >= m:
-            raise ValueError("k must be less than the number of rows in Q")
-        cont_sum = 0
-        if k < m / 2:
-            norm_coeff = 2 / (m * k * (2 * m - 3 * k - 1))
-        else:
-            norm_coeff = 2 / (m * (m - k) * (m - k - 1))
-        for i in prange(1, k + 1):
-            for j in prange(k, m):
-                cont_sum += Q[i, j] * (j - k)
-        cont = 1 - norm_coeff * cont_sum
-        return cont
-
-    @staticmethod
-    def coranking_measures(coranking_matrix, k_neighbors=None):
-
-        """
-        Analyze the co-ranking matrix to compute various metrics such as AUC, Qlocal, and Qglobal.
-        Assumes the co-ranking matrix is already computed and stored in the instance.
-        """
-        if k_neighbors is None:
-            k_neighbors = [2, 5, 10, 25, 50]
-        if coranking_matrix is None:
-            raise ValueError("Co-ranking matrix not computed or set.")
-        trust_ls = []
-        cont_ls = []
-        for k in k_neighbors:
-            trust_ls.append(DRScorer.calculate_trustworthiness(coranking_matrix, k=k))
-            cont_ls.append(DRScorer.calculate_continuity(coranking_matrix, k=k))
-
-        Q = coranking_matrix[1:, 1:]  # Exclude the first row and column for analysis
-        m = len(Q)
-        QNN = np.zeros(m)
-        LCMC = np.zeros(m)
-        for k in range(m):
-            QNN[k] = np.sum(Q[:k + 1, :k + 1]) / ((k + 1) * (m + 1))
-            LCMC[k] = QNN[k] - (k + 1) / (m)
-        AUC = np.mean(QNN)
-        kmax = np.argmax(LCMC) + 1  # since indexing starts at 0
-        Qlocal = np.sum(QNN[:kmax]) / (kmax)
-        Qglobal = np.sum(QNN[kmax - 1:-1]) / (m - kmax - 1)
-        return QNN, LCMC, AUC, kmax, Qlocal, Qglobal, trust_ls, cont_ls
-
-    @staticmethod
-    def tanimoto_int_similarity_matrix(v_a: np.ndarray, v_b: np.ndarray) -> np.ndarray:
-        """
-        Implement the Tanimoto similarity measure for integer matrices, comparing each vector in v_a against each in v_b.
-
-        :param v_a: Numpy matrix where each row represents a vector a.
-        :param v_b: Numpy matrix where each row represents a vector b.
-        :return: Matrix of computed similarity scores, where element (i, j) is the similarity between row i of v_a and row j of v_b.
-        """
-        # Ensure v_a and v_b are numpy arrays in case lists are passed
-        v_a = np.asarray(v_a)
-        v_b = np.asarray(v_b)
-
-        # Calculate the numerator
-        numerator_matrix = np.dot(v_a, v_b.T)
-
-        # Calculate the denominator
-        sum_a_squared = np.sum(np.square(v_a), axis=1).reshape(-1, 1)  # Column vector
-        sum_b_squared = np.sum(np.square(v_b), axis=1).reshape(1, -1)  # Row vector
-        denominator_matrix = sum_a_squared + sum_b_squared - numerator_matrix
-
-        # Handle division by zero
-        denominator_matrix[denominator_matrix == 0] = 1
-
-        # Calculate similarity
-        similarity_matrix = numerator_matrix / denominator_matrix
-
-        return similarity_matrix
-
+    # Backward-compatible aliases to module-level functions
+    correlate_distances = staticmethod(correlate_distances)
+    get_ranks = staticmethod(get_ranks)
+    calculate_distances = staticmethod(calculate_distances)
+    residual_variance = staticmethod(residual_variance)
+    fill_coranking_matrix_numba = staticmethod(fill_coranking_matrix_numba)
+    fill_coranking_matrix_numpy = staticmethod(fill_coranking_matrix_numpy)
+    coranking_matrix = staticmethod(coranking_matrix)
+    calculate_trustworthiness = staticmethod(calculate_trustworthiness)
+    calculate_continuity = staticmethod(calculate_continuity)
+    coranking_measures = staticmethod(coranking_measures)
+    tanimoto_int_similarity_matrix = staticmethod(tanimoto_int_similarity_matrix)
     tanimoto_int_similarity_matrix_numba = staticmethod(tanimoto_int_similarity_matrix_numba)
-
     tanimoto_vector_similarity_numba = staticmethod(tanimoto_vector_similarity_numba)
-
     euclidean_distance_square_numba = staticmethod(euclidean_distance_square_numba)
-
-    @staticmethod
-    def plot_preservation_metrics(distances_high, coords_sets, k_values, thresholds):
-        """
-        Plots the mean preservation of high-dimensional neighbors across different k values and thresholds
-        for various dimensionality reduction techniques, adding the number of compounds with neighbors
-        above each threshold once per threshold.
-
-        Parameters:
-            distances_high (numpy.ndarray): A similarity matrix of compounds.
-            coords_sets (dict): A dictionary of coordinate arrays for different methods.
-            k_values (list): A list of integers representing different k values to test.
-            thresholds (list): A list of float representing different thresholds for neighbor similarity.
-        """
-        # Colors and line styles for differentiation
-        colors = {'PCA': 'red', 'UMAP': 'blue', 'GTM': 'green', 't-SNE': 'purple'}
-        line_styles = {0.7: '-', 0.8: '--', 0.9: 'dotted'}
-        marker_styles = {0.7: 'o', 0.8: 's', 0.9: '^'}
-
-        # Prepare plot
-        plt.figure(figsize=(14, 8))
-        compounds_with_neighbors_text = {}
-        distances_high = np.tril(distances_high, k=-1)
-        # Iterate over different coordinate sets
-        for coords_label, coords in coords_sets.items():
-            for threshold in thresholds:
-                mean_preservations = []
-                indices = np.where(distances_high >= threshold)
-                # Concatenate both arrays
-                combined = np.concatenate(indices)
-
-                # Convert to set to get unique indices
-                # compounds_with_neighbors = np.sum(np.sum(distances_high >= threshold, axis=1) > 0)
-                compounds_with_neighbors_text[threshold] = len(list(set(combined)))  # compounds_with_neighbors
-
-                for k in k_values:
-                    neighbor_model = NearestNeighbors(n_neighbors=k + 1).fit(coords)
-                    distances, indices = neighbor_model.kneighbors(coords)
-
-                    indices = indices[:, 1:]  # Exclude self-comparisons
-                    low_dim_neighbors_sets = [set(row) for row in indices]
-
-                    preservation_percentages = []
-
-                    for idx in range(distances_high.shape[0]):
-                        high_dim_neighbors_indices = np.where(distances_high[idx, :] >= threshold)[0]
-                        if high_dim_neighbors_indices.size > 0:
-                            low_dim_neighbors = low_dim_neighbors_sets[idx]
-                            # print(low_dim_neighbors, high_dim_neighbors_indices)
-                            preserved_neighbors_count = sum(
-                                neighbor in low_dim_neighbors for neighbor in high_dim_neighbors_indices)
-                            total_high_dim_neighbors = len(high_dim_neighbors_indices)
-
-                            if total_high_dim_neighbors > 0:
-                                preservation_percentage = (preserved_neighbors_count / total_high_dim_neighbors) * 100
-                                preservation_percentages.append(preservation_percentage)
-
-                    # Calculate mean preservation for current k
-                    if preservation_percentages:
-                        mean_preservation = np.mean(preservation_percentages)
-                        mean_preservations.append(mean_preservation)
-                    else:
-                        mean_preservations.append(0)
-
-                # Plot the results for the current coordinate set and threshold
-                plt.plot(k_values, mean_preservations, marker=marker_styles[threshold],
-                         label=f'{coords_label} (threshold {threshold})',
-                         color=colors[coords_label], linestyle=line_styles[threshold])
-
-        # Add number of compounds with neighbors information
-        for i, (threshold, count) in enumerate(compounds_with_neighbors_text.items()):
-            plt.text(max(k_values) - 10, i * 3.5, f'Thresh {threshold}: {count} compounds', verticalalignment='top',
-                     horizontalalignment='left')
-
-        plt.title('Mean Preservation of High-Dimensional Neighbors Across Different k Values and Thresholds')
-        plt.xlabel('k (Number of Low-Dimensional Neighbors)')
-        plt.ylabel('Mean Preservation Percentage (%)')
-        plt.legend(loc='upper right')
-        plt.grid(True)
-        plt.show()
+    plot_preservation_metrics = staticmethod(plot_preservation_metrics)
 
 
 def calculate_nn_overlap_list(coords: np.ndarray, indices_original: np.ndarray, k_neighbors: List[int],
@@ -723,8 +602,8 @@ def calculate_metrics(
             sampled_dist_X = ambient_dist[indices][:, indices]
             sampled_dist_latent = latent_dist[indices][:, indices]
 
-            q_corank = DRScorer.coranking_matrix(sampled_dist_X, sampled_dist_latent)
-            qnn, lcmc, auc, kmax, qlocal, qglobal, trust_ls, cont_ls = DRScorer.coranking_measures(q_corank,
+            q_corank = coranking_matrix(sampled_dist_X, sampled_dist_latent)
+            qnn, lcmc, auc, kmax, qlocal, qglobal, trust_ls, cont_ls = coranking_measures(q_corank,
                                                                                                    k_neighbors=k_neighbors)
 
             qnn_list[i] = qnn
@@ -748,8 +627,8 @@ def calculate_metrics(
             'cont_ls': (np.mean(cont_ls_list, axis=0), np.std(cont_ls_list, axis=0)),
         }
     else:
-        q_corank = DRScorer.coranking_matrix(ambient_dist, latent_dist)
-        qnn, lcmc, auc, kmax, qlocal, qglobal, trust_ls, cont_ls = DRScorer.coranking_measures(q_corank,
+        q_corank = coranking_matrix(ambient_dist, latent_dist)
+        qnn, lcmc, auc, kmax, qlocal, qglobal, trust_ls, cont_ls = coranking_measures(q_corank,
                                                                                                k_neighbors=k_neighbors)
 
         metrics = {

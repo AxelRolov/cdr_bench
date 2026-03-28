@@ -129,7 +129,7 @@ class Optimizer:
             progress_bar = None
 
         for params in ParameterGrid(self.param_grid):
-            print(params)
+            logging.debug(f"Testing parameters: {params}")
             self.estimator.update_params(**params)
             if self.verbose >= 2:
                 logging.info(f"Testing parameters: {params}")
@@ -211,7 +211,7 @@ class Optimizer:
             with open(f'{self.save_path}/{method_name}_best_model.pkl', 'wb') as f:
                 pickle.dump(self.best_model, f)
         except Exception as e:
-            logging.info(f"An error occurred while saving the model: {e}")
+            logging.error(f"An error occurred while saving the model: {e}")
 
 
 def perform_optimization(method: str,
