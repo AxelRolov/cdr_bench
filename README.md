@@ -55,8 +55,7 @@ Hierarchical Data Format ([HDF5](https://docs.hdfgroup.org/hdf5/v1_14/_intro_h_d
 ### Descriptors (features)
 Morgan fingerprints and MACCS keys are available from RDKit. .
 
-### Generative topographic mapping
-The results for the generative topographic mapping (GTM) in the [original publication](https://chemrxiv.org/engage/chemrxiv/article-details/66bb4da5f3f4b05290bccb6e) were obtained using an in-house GTM implementation. In this repository, an open-source implementation of the GTM algorithm – [ugtm](https://github.com/hagax8/ugtm) – was added for comparison.
-
 ## Citation
-If you use the code from this repository, please cite the following [publication](https://chemrxiv.org/engage/chemrxiv/article-details/66bb4da5f3f4b05290bccb6e).
+If you use the code from this repository, please cite the following [publication](https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265).
+### Generative topographic mapping
+The results for the generative topographic mapping (GTM) in the [original publication](https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265) were obtained using an in-house GTM implementation. In this repository, an open-source implementation of the GTM algorithm – [ChemographyKit](https://github.com/Laboratoire-de-Chemoinformatique/ChemographyKit) – was added for comparison. If you use it please cite the following publication
