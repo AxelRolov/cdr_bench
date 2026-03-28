@@ -24,7 +24,7 @@ class DimReducer:
             'PCA': {'n_components': 2},
             'UMAP': {'n_components': 2},
             't-SNE': {'n_components': 2, 'verbose': False},
-            'GTM': {'k': 15, 'm': 5, 's': 1.1, 'regul': 1}
+            'GTM': {'num_nodes': 225, 'num_basis_functions': 25, 'basis_width': 1.1, 'reg_coeff': 1}
         }
 
     @staticmethod
@@ -57,20 +57,8 @@ class DimReducer:
             self.model = model_class(**self.model_params)
 
     def _gtm_preprocessing(self):
-        """Preprocess GTM model parameters and translate to ChemographyKit API."""
-        params = self.model_params.copy()
-        k = params.pop('k')
-        m = params.pop('m')
-        s = params.pop('s')
-        regul = params.pop('regul')
-        return ChemographyGTM(
-            num_nodes=k * k,
-            num_basis_functions=m * m,
-            basis_width=s,
-            reg_coeff=regul,
-            standardize=False,
-            **params,
-        )
+        """Create ChemographyKit GTM model from parameters."""
+        return ChemographyGTM(standardize=False, **self.model_params)
 
     def update_params(self, **new_params: Any):
         """Update parameters and reinitialize the model."""

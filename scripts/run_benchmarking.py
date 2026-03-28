@@ -34,10 +34,10 @@ def create_gtm_params(n_components: int) -> GTMParams:
     params = GTMParams.default_params(n_components)
     return GTMParams(
         method='GTM',
-        k=params['k'],
-        m=params['m'],
-        s=params['s'],
-        regul=params['regul']
+        num_nodes=params['num_nodes'],
+        num_basis_functions=params['num_basis_functions'],
+        basis_width=params['basis_width'],
+        reg_coeff=params['reg_coeff'],
     )
 
 def initialize_methods_and_params(test: bool) -> tuple:

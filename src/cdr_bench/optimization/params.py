@@ -85,10 +85,10 @@ class TSNEParams(DimReducerParams):
 @dataclass
 class GTMParams(DimReducerParams):
     """Class for keeping track of GTM-specific parameters, inheriting from DimReducerParams."""
-    k: int = field(default_factory=int)
-    m: int = field(default_factory=int)
-    s: float = 1.1
-    regul: float = 1.0
+    num_nodes: int = field(default_factory=int)
+    num_basis_functions: int = field(default_factory=int)
+    basis_width: float = 1.1
+    reg_coeff: float = 1.0
 
     @staticmethod
     def default_params(n_components: int) -> Dict[str, Any]:
@@ -107,14 +107,14 @@ class GTMParams(DimReducerParams):
         if n_components == 3:
             raise NotImplementedError(
                 "Default GTM parameters for n_components=3 are not yet defined. "
-                "Please provide explicit k, m, s, and regul values."
+                "Please provide explicit num_nodes, num_basis_functions, basis_width, and reg_coeff values."
             )
         elif n_components == 2:
             return {
-                'k': 15,
-                'm': 13,
-                's': 1.0,
-                'regul': 1.0,
+                'num_nodes': 225,
+                'num_basis_functions': 169,
+                'basis_width': 1.0,
+                'reg_coeff': 1.0,
             }
         else:
             raise ValueError("Unsupported number of components")
