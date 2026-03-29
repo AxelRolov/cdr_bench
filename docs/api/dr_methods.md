@@ -20,8 +20,8 @@ The `DimReducer` class provides a unified interface for fitting and transforming
 ### Usage Example
 
 ```python
-from cdr_bench.optimization.params import UMAPParams
-from cdr_bench.dr_methods.dimensionality_reduction import DimReducer
+from src.cdr_bench.optimization.params import UMAPParams
+from src.cdr_bench.dr_methods.dimensionality_reduction import DimReducer
 
 params = UMAPParams(n_components=2, n_neighbors=15, min_dist=0.1)
 reducer = DimReducer(params)

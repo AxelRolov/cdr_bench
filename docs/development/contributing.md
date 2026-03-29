@@ -5,8 +5,8 @@
 ```bash
 git clone https://github.com/AxelRolov/cdr_bench.git
 cd cdr_bench
-pdm install -d       # Install with dev dependencies (includes JupyterLab)
-pdm install -G docs  # Install documentation dependencies
+uv sync --group dev   # Install with dev dependencies (includes JupyterLab)
+uv sync --group docs  # Install documentation dependencies
 ```
 
 ## Running Tests

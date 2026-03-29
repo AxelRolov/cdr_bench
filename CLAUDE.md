@@ -10,8 +10,8 @@ Benchmarking framework for dimensionality reduction (DR) techniques on chemical 
 
 ### Environment setup
 ```bash
-# Python 3.11 required. PDM manages dependencies.
-pdm install
+# Python 3.11 required. uv manages dependencies.
+uv sync
 ```
 
 ### Run tests

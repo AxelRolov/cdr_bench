@@ -8,7 +8,7 @@ authors = [
 dependencies = [
     "setuptools>=74.1.2",
     "h5py",
-    "numpy<2.1",
+    "numpy",
     "pandas",
     "scipy>=1.14.1",
     "matplotlib>=3.9.2",
@@ -38,12 +38,8 @@ Repository = "https://github.com/AxelRolov/cdr_bench"
 Paper = "https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265"
 
 
-[tool.pdm]
-distribution = false
-
-[tool.pdm.dev-dependencies]
+[dependency-groups]
 dev = [
-    "cdr-bench @ file:///${PROJECT_ROOT}/",
     "jupyterlab>=4.2.5",
 ]
 docs = [
