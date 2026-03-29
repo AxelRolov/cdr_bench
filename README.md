@@ -13,12 +13,12 @@ Based on the publication:
 
 ## Installation
 
-Requires Python 3.11 and [PDM](https://pdm-project.org/).
+Requires Python 3.11 and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/AxelRolov/cdr_bench.git
 cd cdr_bench
-pdm install
+uv sync
 ```
 
 ## Quick Usage

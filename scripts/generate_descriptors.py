@@ -13,9 +13,9 @@ from rdkit import Chem
 from rdkit.Chem import MACCSkeys
 from rdkit.Chem import rdFingerprintGenerator
 
-from cdr_bench.io_utils.io import save_dataframe_to_hdf5
-from cdr_bench.bench.features.feature_preprocessing import remove_duplicate_rows, find_nonconstant_features, remove_constant_features
-from cdr_bench.feature.chemdist import load_model
+from src.cdr_bench.io_utils.io import save_dataframe_to_hdf5
+from src.cdr_bench.features.feature_preprocessing import remove_duplicate_rows, find_nonconstant_features, remove_constant_features
+from src.cdr_bench.features.chemdist_features import load_model
 
 
 def load_feature_config(config_path: str) -> Dict[str, Any]:

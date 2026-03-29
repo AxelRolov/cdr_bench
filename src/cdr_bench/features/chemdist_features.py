@@ -3,7 +3,7 @@ import torch
 from typing import Dict, Any
 from dgl import batch, DGLGraph
 from dgllife.utils import smiles_to_bigraph, CanonicalAtomFeaturizer, CanonicalBondFeaturizer
-from cdr_bench.io_utils.io import remove_duplicate_rows
+from src.cdr_bench.io_utils.data_preprocessing import remove_duplicates  # NOTE: remove_duplicate_rows was removed; callers need updating
 
 # Atom and Bond Featurizers
 NF = CanonicalAtomFeaturizer()

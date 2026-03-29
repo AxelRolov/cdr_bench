@@ -3,12 +3,12 @@
 ## Prerequisites
 
 - **Python 3.11** (required; the project pins `requires-python = "==3.11.*"`)
-- **[PDM](https://pdm-project.org/)** for dependency management
+- **[uv](https://docs.astral.sh/uv/)** for dependency management
 
-### Install PDM
+### Install uv
 
 ```bash
-pip install pdm
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
 ## Install cdr_bench
@@ -16,7 +16,7 @@ pip install pdm
 ```bash
 git clone https://github.com/AxelRolov/cdr_bench.git
 cd cdr_bench
-pdm install
+uv sync
 ```
 
 This installs all required dependencies including RDKit, UMAP, openTSNE, ChemographyKit, Numba, and DGL-Life.
@@ -36,11 +36,17 @@ ChemDist embedding generation (via DGL-Life and PyTorch) benefits from GPU accel
 To install with development dependencies (includes JupyterLab):
 
 ```bash
-pdm install -d
+uv sync --group dev
 ```
 
 To install documentation dependencies:
 
 ```bash
-pdm install -G docs
+uv sync --group docs
+```
+
+To install all dependency groups:
+
+```bash
+uv sync --all-groups
 ```

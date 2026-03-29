@@ -43,7 +43,7 @@ This project accompanies the publication:
 # Install
 git clone https://github.com/AxelRolov/cdr_bench.git
 cd cdr_bench
-pdm install
+uv sync
 
 # Run benchmarking
 python scripts/run_benchmarking.py --config bench_configs/run_benchmarking.toml
