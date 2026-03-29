@@ -122,15 +122,15 @@ def read_method_optimization_stats(folder: str, descriptor: str, method: str) ->
         if method == 'GTM':
             with h5py.File(file_path, 'r') as f:
                 all_scores = f['all_scores/score'][:]
-                s = f['all_scores/s'][:]
-                m = f['all_scores/m'][:]
-                k = f['all_scores/k'][:]
-                regul = f['all_scores/regul'][:]
+                basis_width = f['all_scores/basis_width'][:]
+                num_basis_functions = f['all_scores/num_basis_functions'][:]
+                num_nodes = f['all_scores/num_nodes'][:]
+                reg_coeff = f['all_scores/reg_coeff'][:]
 
                 for i in range(len(all_scores)):
-                    all_data.append((s[i], m[i], k[i], regul[i], all_scores[i]))
+                    all_data.append((basis_width[i], num_basis_functions[i], num_nodes[i], reg_coeff[i], all_scores[i]))
 
-    return pd.DataFrame(all_data, columns=['s', 'm', 'k', 'regul', 'score'])
+    return pd.DataFrame(all_data, columns=['basis_width', 'num_basis_functions', 'num_nodes', 'reg_coeff', 'score'])
 
 def read_ambient_dist_and_pca_results(file_path: str) -> Dict[str, Any]:
     """

@@ -56,10 +56,10 @@ def create_param_grid(data_shape: int, n_components: int, method: str = 'UMAP', 
         }
     elif method == 'GTM':
         param_grid = {
-                'k': [15, 25, 40 ],
-                'm': [10, 20, 35],
-                'regul': [1, 10, 100],
-                's': [0.1, 0.4, 0.8, 1.2]
+                'num_nodes': [225, 625, 1600],
+                'num_basis_functions': [100, 400, 1225],
+                'reg_coeff': [1, 10, 100],
+                'basis_width': [0.1, 0.4, 0.8, 1.2]
             }
 
 
@@ -98,7 +98,7 @@ class Optimizer:
     def _filter_gtm_params(self, param_grid):
         valid_params = []
         for params in ParameterGrid(param_grid):
-            if params['m'] < params['k']:
+            if params['num_basis_functions'] < params['num_nodes']:
                 # Ensure all single values are wrapped in a list
                 for key in params.keys():
                     if not isinstance(params[key], list):

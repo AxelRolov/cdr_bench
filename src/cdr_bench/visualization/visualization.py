@@ -126,28 +126,28 @@ def plot_mean_accuracy_metric(summary_df: pd.DataFrame) -> None:
     """
     fig, ax = plt.subplots(2, 2, figsize=(12, 12))
     fig.subplots_adjust(bottom=0.25)
-    sc1 = ax[0, 0].scatter(summary_df['s'], summary_df['m'],
+    sc1 = ax[0, 0].scatter(summary_df['basis_width'], summary_df['num_basis_functions'],
                            c=summary_df['mean'], s=(summary_df['std'] + 0.1) * 10, cmap='viridis')
     #ax[0, 0].set_xscale('log')
     #ax[0, 0].set_yscale('log')
     ax[0, 0].set_xlabel('Basis Width')
     ax[0, 0].set_ylabel('Number of Basis Functions')
 
-    sc4 = ax[0, 1].scatter(summary_df['k'], summary_df['m'],
+    sc4 = ax[0, 1].scatter(summary_df['num_nodes'], summary_df['num_basis_functions'],
                            c=summary_df['mean'], s=(summary_df['std'] + 0.1) * 100, cmap='viridis')
     # ax[0, 0].set_xscale('log')
     # ax[0, 0].set_yscale('log')
     ax[0, 0].set_xlabel('Basis Width')
     ax[0, 0].set_ylabel('Number of Basis Functions')
 
-    sc2 = ax[1, 0].scatter(summary_df['s'], summary_df['regul'],
+    sc2 = ax[1, 0].scatter(summary_df['basis_width'], summary_df['reg_coeff'],
                            c=summary_df['mean'], s=(summary_df['std'] + 0.1) * 100, cmap='viridis')
     #ax[1, 0].set_xscale('log')
     #ax[1, 0].set_yscale('log')
     ax[1, 0].set_xlabel('Basis Width')
     ax[1, 0].set_ylabel('Regularization Coefficient')
 
-    sc3 = ax[1, 1].scatter(summary_df['s'], summary_df['k'],
+    sc3 = ax[1, 1].scatter(summary_df['basis_width'], summary_df['num_nodes'],
                            c=summary_df['mean'], s=(summary_df['std'] + 0.1) * 100, cmap='viridis')
     #ax[1, 1].set_xscale('log')
     #ax[1, 1].set_yscale('log')

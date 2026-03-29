@@ -1,9 +1,10 @@
 from sklearn.decomposition import PCA
 from openTSNE.sklearn import TSNE
 from umap import UMAP
-from ugtm import eGTM as ScikitLearnGTM
+from chemographykit.gtm import GTM as ChemographyGTM
 from src.cdr_bench.optimization.params import DimReducerParams
 import numpy as np
+import torch
 from typing import Optional, Any, Dict
 
 
@@ -23,7 +24,7 @@ class DimReducer:
             'PCA': {'n_components': 2},
             'UMAP': {'n_components': 2},
             't-SNE': {'n_components': 2, 'verbose': False},
-            'GTM': {'k': 15, 'm': 5, 's': 1.1, 'regul': 1}
+            'GTM': {'num_nodes': 225, 'num_basis_functions': 25, 'basis_width': 1.1, 'reg_coeff': 1}
         }
 
     @staticmethod
@@ -33,7 +34,7 @@ class DimReducer:
             'PCA': PCA,
             'UMAP': UMAP,
             't-SNE': TSNE,
-            'GTM': ScikitLearnGTM  # Default to BishopGTM unless specified otherwise
+            'GTM': ChemographyGTM
         }
 
     def _merge_params_with_defaults(self) -> Dict[str, Any]:
@@ -56,11 +57,8 @@ class DimReducer:
             self.model = model_class(**self.model_params)
 
     def _gtm_preprocessing(self):
-        """Preprocess GTM model parameters."""
-        if self.model_params.get('kernel', False):
-            return KernelGTM(**self.model_params)
-        else:
-            return ScikitLearnGTM(**self.model_params)
+        """Create ChemographyKit GTM model from parameters."""
+        return ChemographyGTM(standardize=False, **self.model_params)
 
     def update_params(self, **new_params: Any):
         """Update parameters and reinitialize the model."""
@@ -69,14 +67,22 @@ class DimReducer:
 
     def fit(self, X: np.ndarray, y: Optional[np.ndarray] = None):
         """Fit the model."""
-        return self.model.fit(X, y)
+        if self.method == 'GTM':
+            self.model.fit(torch.tensor(X, dtype=torch.float64))
+        else:
+            self.model.fit(X, y)
+        return self
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         """Transform the data."""
+        if self.method == 'GTM':
+            return self.model.transform(torch.tensor(X, dtype=torch.float64)).detach().numpy()
         return self.model.transform(X)
 
     def fit_transform(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> np.ndarray:
         """Fit and transform the data."""
+        if self.method == 'GTM':
+            return self.model.fit_transform(torch.tensor(X, dtype=torch.float64)).detach().numpy()
         return self.model.fit_transform(X, y)
 
     @staticmethod

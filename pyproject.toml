@@ -19,7 +19,7 @@ dependencies = [
     "tqdm>=4.66.5",
     "rdkit>=2024.3.5",
     "openTSNE>=1.0.2",
-    "ugtm>=2.1.0.post2",
+    "chemographykit",
     "umap-learn>=0.5.6",
     "dgllife>=0.3.2",
     "lightning>=2.4.0",
