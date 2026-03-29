@@ -1,7 +1,7 @@
 [project]
 name = "cdr_bench"
 version = "0.1.0"
-description = "Scripts for performing dimensionality reduciton on chemical datasets"
+description = "Scripts for performing dimensionality reduction on chemical datasets"
 authors = [
     {name = "Alexey Orlov", email = "data2scale@gmail.com"}
 ]
@@ -31,6 +31,12 @@ requires-python = "==3.11.*"
 readme = "README.md"
 license = {text = "MIT"}
 
+[project.urls]
+Documentation = "https://axelrolov.github.io/cdr_bench/"
+Repository = "https://github.com/AxelRolov/cdr_bench"
+"Bug Tracker" = "https://github.com/AxelRolov/cdr_bench/issues"
+Paper = "https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265"
+
 
 [tool.pdm]
 distribution = false
@@ -39,4 +45,9 @@ distribution = false
 dev = [
     "cdr-bench @ file:///${PROJECT_ROOT}/",
     "jupyterlab>=4.2.5",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
 ]
