@@ -147,9 +147,9 @@ def prepare_data_for_optimization(data_df: pd.DataFrame, val_data_df: Optional[p
 
     Args:
         data_df (pd.DataFrame): The input data DataFrame containing molecular fingerprints.
-        val_data_df Optional[pd.DataFrame]: The validation data file (if available) containing molecular fingerprints.
+        val_data_df (Optional[pd.DataFrame]): The validation data file (if available) containing molecular fingerprints.
         feature_name (str): The name of the feature to use
-        scaling Optional[str]: The type of the feature preprocessing to use (standardization by default)
+        scaling (Optional[str]): The type of the feature preprocessing to use (standardization by default)
 
     Returns:
         Tuple[pd.DataFrame, Optional[pd.DataFrame], np.ndarray, Optional[np.ndarray]]: 

@@ -1,0 +1,76 @@
+site_name: cdr_bench
+site_description: Benchmarking framework for dimensionality reduction techniques on chemical datasets
+site_url: https://axelrolov.github.io/cdr_bench/
+repo_url: https://github.com/AxelRolov/cdr_bench
+repo_name: AxelRolov/cdr_bench
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - content.code.copy
+    - toc.follow
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            members_order: source
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.details
+  - toc:
+      permalink: true
+  - attr_list
+  - md_in_html
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quickstart: getting-started/quickstart.md
+  - User Guide:
+    - Data Pipeline: user-guide/data-pipeline.md
+    - Configuration Reference: user-guide/configuration.md
+    - CLI Reference: user-guide/cli.md
+  - API Reference:
+    - Dimensionality Reduction: api/dr_methods.md
+    - Optimization: api/optimization.md
+    - Scoring: api/scoring.md
+    - I/O Utilities: api/io_utils.md
+    - Features: api/features.md
+    - Visualization: api/visualization.md
+  - Development:
+    - Architecture: development/architecture.md
+    - Contributing: development/contributing.md

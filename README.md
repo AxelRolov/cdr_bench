@@ -1,61 +1,90 @@
-# Benchmarking Dimensionality Reduction Techniques on Chemical Datasets
+# cdr_bench
 
-## Introduction
-This repository contains the data and scripts required to reproduce the results presented in our paper on benchmarking dimensionality reduction techniques applied to chemical datasets.
-The datasets used for dimensionality reduction and optimization results are available on [Zenodo](https://doi.org/10.5281/zenodo.13752690)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
+[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.13752690-blue)](https://doi.org/10.5281/zenodo.13752690)
 
-## Repository Structure
+Benchmarking framework for dimensionality reduction (DR) techniques on chemical datasets. Implements systematic hyperparameter optimization and quality evaluation for PCA, UMAP, t-SNE, and GTM on molecular descriptor spaces.
 
-- **src**: Contains the essential code for data preprocessing, dimensionality reduction, optimization, analysis, and visualization.
-- **datasets**: Contains several datasets (ChEMBL subsets) used in the original study.
-- **notebooks**: Includes Jupyter notebooks used for data analysis and visualization.
-- **results**: Stores calculated metrics from the paper and some obtained embeddings for demonstration purposes (all embeddings are available on [Zenodo](https://doi.org/10.5281/zenodo.13752690)).
-- **scripts**: Includes master scripts for data preparation, running benchmarks, and analyzing results.
+Based on the publication:
+
+> Orlov, A. et al. "Benchmarking Dimensionality Reduction Techniques on Chemical Datasets."
+> *Molecular Informatics*, 2024. [DOI: 10.1002/minf.202400265](https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265)
+
+## Installation
+
+Requires Python 3.11 and [PDM](https://pdm-project.org/).
+
+```bash
+git clone https://github.com/AxelRolov/cdr_bench.git
+cd cdr_bench
+pdm install
+```
+
+## Quick Usage
+
+```bash
+# 1. Generate molecular descriptors from SMILES
+python scripts/generate_descriptors.py bench_configs/features.toml
+
+# 2. Run benchmarking (grid search optimization)
+python scripts/run_benchmarking.py --config bench_configs/run_benchmarking.toml
+
+# 3. Analyze and aggregate results
+python scripts/analyze_results.py --input_dir results/ --output_dir results/ --k_hit 20
+```
+
+## Documentation
+
+Full documentation is available at [axelrolov.github.io/cdr_bench](https://axelrolov.github.io/cdr_bench/).
+
+## Project Structure
+
+```
+cdr_bench/
+├── src/cdr_bench/          # Core library
+│   ├── dr_methods/         # DimReducer wrapper (PCA, UMAP, t-SNE, GTM)
+│   ├── optimization/       # Grid search optimizer and parameter definitions
+│   ├── scoring/            # Quality metrics (NN overlap, co-ranking, trustworthiness)
+│   ├── io_utils/           # HDF5 I/O, config loading, data preprocessing
+│   ├── features/           # Descriptor generation (Morgan FP, MACCS, ChemDist)
+│   └── visualization/      # Plotting utilities
+├── scripts/                # Pipeline scripts
+│   ├── run_benchmarking.py
+│   ├── generate_descriptors.py
+│   ├── analyze_results.py
+│   ├── prepare_lolo.py
+│   └── analyze_lib_distance_preservation.py
+├── bench_configs/          # TOML configuration files
+│   ├── run_benchmarking.toml
+│   ├── features.toml
+│   └── method_configs/     # Per-method hyperparameter grids
+├── datasets/               # Sample ChEMBL datasets (HDF5)
+├── results/                # Benchmark results and metrics
+├── notebooks/              # Jupyter notebooks for analysis
+└── tests/                  # Test suite
+```
 
 ## Datasets
-The `datasets` directory houses the chemical datasets used throughout the study.
 
-## Results
-The `results` directory includes the optimized low-dimensional embeddings and all associated metrics.
-
-## Notebooks
-The `notebooks` directory contains Jupyter notebooks for data analysis, visualization, and further exploration of the study's findings.
-
-## Code
-### Core code
-The `src/cdr_bench` directory contains various components for dimensionality reduction benchmarking:
-
-- **`dr_methods/`** – Directory containing code of a wrapper class different dimensionality reduction methods.
-- **`features/`** – Contains code for feature extraction and processing.
-- **`io_utils/`** – Utility code for input/output operations.
-- **`method_configs/`** – Configuration files for different dimensionality reduction methods.
-- **`optimization/`** – Code for optimization routines.
-- **`scoring/`** – Contains code for scoring and evaluating methods.
-- **`visualization/`** – Code for visualizing benchmarking results.
-
-
-
-### Scripts
-
-The `scripts` directory contains the master scripts for data preparation, running benchmarks, and analyzing results:
-
-- **`run_optimization.py`** – Main script for running optimization processes.
-- **`analyze_results.py`** – Script for automated result analysis.
-- **`prepare_lolo.py`** – Script for splitting datasets in leave-one-library-out (LOLO) mode.
-
-
-## Notes
-
-### Dependency management
-[PDM](https://pdm-project.org/latest/) was used for dependency management. Required packages are available under `pdm.lock` file.
-
-### Input/Output
-Hierarchical Data Format ([HDF5](https://docs.hdfgroup.org/hdf5/v1_14/_intro_h_d_f5.html), `.h5`) file format is used to store the data on descriptors and optimization results. Examples of how to read and write the hierarchical data structures can be found under `/notebooks/IO.ipynb`.
-
-### Descriptors (features)
-Morgan fingerprints and MACCS keys are available from RDKit. .
+The `datasets/` directory contains ChEMBL subset datasets used in the study. Full datasets and all embeddings are available on [Zenodo](https://doi.org/10.5281/zenodo.13752690).
 
 ## Citation
-If you use the code from this repository, please cite the following [publication](https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265).
-### Generative topographic mapping
-The results for the generative topographic mapping (GTM) in the [original publication](https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265) were obtained using an in-house GTM implementation. In this repository, an open-source implementation of the GTM algorithm – [ChemographyKit](https://github.com/Laboratoire-de-Chemoinformatique/ChemographyKit) – was added for comparison. If you use it please cite the following publication
+
+```bibtex
+@article{orlov2024benchmarking,
+  title={Benchmarking Dimensionality Reduction Techniques on Chemical Datasets},
+  author={Orlov, Alexey},
+  journal={Molecular Informatics},
+  year={2024},
+  doi={10.1002/minf.202400265}
+}
+```
+
+### Generative Topographic Mapping
+
+The GTM results in the [original publication](https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265) were obtained using an in-house implementation. This repository uses the open-source [ChemographyKit](https://github.com/Laboratoire-de-Chemoinformatique/ChemographyKit) for GTM. If you use it, please cite the ChemographyKit publication as well.
+
+## License
+
+[MIT](LICENSE)
