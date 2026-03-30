@@ -1,13 +1,14 @@
-import numpy as np
 from collections import defaultdict
+from collections.abc import Callable
+from typing import Any
 
-from scipy.stats import pearsonr, spearmanr
-from scipy.spatial.distance import cdist
 import matplotlib.pyplot as plt
-from sklearn.neighbors import NearestNeighbors
-from sklearn.base import BaseEstimator
+import numpy as np
 from numba import jit, njit, prange
-from typing import List, Any, Callable, Dict, Union, Optional, Tuple
+from scipy.spatial.distance import cdist
+from scipy.stats import pearsonr, spearmanr
+from sklearn.base import BaseEstimator
+from sklearn.neighbors import NearestNeighbors
 from src.cdr_bench.optimization.params import ScoringParams
 
 
@@ -30,6 +31,7 @@ def euclidean_distance_square_numba(x1: np.ndarray, x2: np.ndarray) -> np.ndarra
             result[i, j] = dist_sq
 
     return result
+
 
 @njit(parallel=True, fastmath=True)
 def tanimoto_int_similarity_matrix_numba(v_a: np.ndarray, v_b: np.ndarray) -> np.ndarray:
@@ -65,6 +67,7 @@ def tanimoto_int_similarity_matrix_numba(v_a: np.ndarray, v_b: np.ndarray) -> np
 
     return similarity_matrix
 
+
 @njit(fastmath=True)
 def tanimoto_vector_similarity_numba(v_a: np.ndarray, v_b: np.ndarray) -> float:
     """
@@ -85,6 +88,7 @@ def tanimoto_vector_similarity_numba(v_a: np.ndarray, v_b: np.ndarray) -> float:
         return 0.0
     return numerator / denominator
 
+
 def correlate_distances(distances_high, distances_low, method="spearman"):
     """Calculate correlation between flattened distance matrices."""
     distances_high_flat = distances_high.flatten()
@@ -102,10 +106,10 @@ def correlate_distances(distances_high, distances_low, method="spearman"):
 
 def get_ranks(distances):
     """Convert pairwise distances to ranks using NumPy."""
-    return np.argsort(np.argsort(distances, axis=1, kind='stable'), axis=1, kind='stable')
+    return np.argsort(np.argsort(distances, axis=1, kind="stable"), axis=1, kind="stable")
 
 
-def calculate_distances(matrix_a, matrix_b=None, metric='euclidean'):
+def calculate_distances(matrix_a, matrix_b=None, metric="euclidean"):
     """Calculate and return the pairwise distance matrix between two matrices."""
     if matrix_b is None:
         matrix_b = matrix_a
@@ -115,7 +119,7 @@ def calculate_distances(matrix_a, matrix_b=None, metric='euclidean'):
 def residual_variance(distances_high, distances_low, method="spearman"):
     """Calculate residual variance (1 - r^2) between flattened distance matrices."""
     corr = correlate_distances(distances_high, distances_low, method=method)
-    return 1 - corr ** 2
+    return 1 - corr**2
 
 
 @njit(parallel=True, fastmath=True)
@@ -177,8 +181,8 @@ def coranking_matrix(distances_high: np.ndarray, distances_low: np.ndarray, k=No
     N = distances_high.shape[0]
     k = k or N
 
-    ranks_high = np.argsort(np.argsort(distances_high, axis=1, kind='stable'), axis=1, kind='stable')
-    ranks_low = np.argsort(np.argsort(distances_low, axis=1, kind='stable'), axis=1, kind='stable')
+    ranks_high = np.argsort(np.argsort(distances_high, axis=1, kind="stable"), axis=1, kind="stable")
+    ranks_low = np.argsort(np.argsort(distances_low, axis=1, kind="stable"), axis=1, kind="stable")
 
     if use_numba:
         return fill_coranking_matrix_numba(N, k, ranks_high, ranks_low)
@@ -259,12 +263,12 @@ def coranking_measures(Q, k_neighbors=None):
     QNN = np.zeros(m)
     LCMC = np.zeros(m)
     for k in range(m):
-        QNN[k] = np.sum(Q_inner[:k + 1, :k + 1]) / ((k + 1) * (m + 1))
+        QNN[k] = np.sum(Q_inner[: k + 1, : k + 1]) / ((k + 1) * (m + 1))
         LCMC[k] = QNN[k] - (k + 1) / (m)
     AUC = np.mean(QNN)
     kmax = np.argmax(LCMC) + 1
     Qlocal = np.sum(QNN[:kmax]) / (kmax)
-    Qglobal = np.sum(QNN[kmax - 1:-1]) / (m - kmax - 1)
+    Qglobal = np.sum(QNN[kmax - 1 : -1]) / (m - kmax - 1)
     return QNN, LCMC, AUC, kmax, Qlocal, Qglobal, trust_ls, cont_ls
 
 
@@ -299,9 +303,9 @@ def plot_preservation_metrics(distances_high, coords_sets, k_values, thresholds)
         k_values (list): A list of integers representing different k values to test.
         thresholds (list): A list of float representing different thresholds for neighbor similarity.
     """
-    colors = {'PCA': 'red', 'UMAP': 'blue', 'GTM': 'green', 't-SNE': 'purple'}
-    line_styles = {0.7: '-', 0.8: '--', 0.9: 'dotted'}
-    marker_styles = {0.7: 'o', 0.8: 's', 0.9: '^'}
+    colors = {"PCA": "red", "UMAP": "blue", "GTM": "green", "t-SNE": "purple"}
+    line_styles = {0.7: "-", 0.8: "--", 0.9: "dotted"}
+    marker_styles = {0.7: "o", 0.8: "s", 0.9: "^"}
 
     plt.figure(figsize=(14, 8))
     compounds_with_neighbors_text = {}
@@ -327,7 +331,8 @@ def plot_preservation_metrics(distances_high, coords_sets, k_values, thresholds)
                     if high_dim_neighbors_indices.size > 0:
                         low_dim_neighbors = low_dim_neighbors_sets[idx]
                         preserved_neighbors_count = sum(
-                            neighbor in low_dim_neighbors for neighbor in high_dim_neighbors_indices)
+                            neighbor in low_dim_neighbors for neighbor in high_dim_neighbors_indices
+                        )
                         total_high_dim_neighbors = len(high_dim_neighbors_indices)
 
                         if total_high_dim_neighbors > 0:
@@ -339,18 +344,28 @@ def plot_preservation_metrics(distances_high, coords_sets, k_values, thresholds)
                 else:
                     mean_preservations.append(0)
 
-            plt.plot(k_values, mean_preservations, marker=marker_styles[threshold],
-                     label=f'{coords_label} (threshold {threshold})',
-                     color=colors[coords_label], linestyle=line_styles[threshold])
+            plt.plot(
+                k_values,
+                mean_preservations,
+                marker=marker_styles[threshold],
+                label=f"{coords_label} (threshold {threshold})",
+                color=colors[coords_label],
+                linestyle=line_styles[threshold],
+            )
 
     for i, (threshold, count) in enumerate(compounds_with_neighbors_text.items()):
-        plt.text(max(k_values) - 10, i * 3.5, f'Thresh {threshold}: {count} compounds', verticalalignment='top',
-                 horizontalalignment='left')
+        plt.text(
+            max(k_values) - 10,
+            i * 3.5,
+            f"Thresh {threshold}: {count} compounds",
+            verticalalignment="top",
+            horizontalalignment="left",
+        )
 
-    plt.title('Mean Preservation of High-Dimensional Neighbors Across Different k Values and Thresholds')
-    plt.xlabel('k (Number of Low-Dimensional Neighbors)')
-    plt.ylabel('Mean Preservation Percentage (%)')
-    plt.legend(loc='upper right')
+    plt.title("Mean Preservation of High-Dimensional Neighbors Across Different k Values and Thresholds")
+    plt.xlabel("k (Number of Low-Dimensional Neighbors)")
+    plt.ylabel("Mean Preservation Percentage (%)")
+    plt.legend(loc="upper right")
     plt.grid(True)
     plt.show()
 
@@ -365,13 +380,13 @@ class DRScorer:
     """
 
     def __init__(self, estimator: BaseEstimator, scoring_params: ScoringParams):
-        #, overlap: bool = False, topology: bool = False):
+        # , overlap: bool = False, topology: bool = False):
         self.estimator = estimator
         self.scoring_params = scoring_params
-        #self.overlap = overlap
-        #self.topology = topology
+        # self.overlap = overlap
+        # self.topology = topology
 
-    def default_scoring(self, X: np.ndarray, y: Union[np.ndarray, None] = None) -> float:
+    def default_scoring(self, X: np.ndarray, y: np.ndarray | None = None) -> float:
         """
         Default scoring function (placeholder).
 
@@ -385,7 +400,7 @@ class DRScorer:
         # Placeholder for the default scoring method
         return 0.0
 
-    def get_scoring_function(self, scoring_type: str) -> Callable[[np.ndarray, Union[np.ndarray, None]], float]:
+    def get_scoring_function(self, scoring_type: str) -> Callable[[np.ndarray, np.ndarray | None], float]:
         """
         Returns the appropriate scoring function based on the type.
 
@@ -395,9 +410,9 @@ class DRScorer:
         Returns:
             Callable: A scoring function.
         """
-        scoring_functions: Dict[str, Callable[[np.ndarray, Union[np.ndarray, None]], float]] = {
-            'default': self.default_scoring,
-            'overlap': self.overlap_scoring
+        scoring_functions: dict[str, Callable[[np.ndarray, np.ndarray | None], float]] = {
+            "default": self.default_scoring,
+            "overlap": self.overlap_scoring,
         }
 
         if scoring_type in scoring_functions:
@@ -405,7 +420,7 @@ class DRScorer:
         else:
             raise ValueError(f"Unsupported scoring type '{scoring_type}'")
 
-    def overlap_scoring(self, X: np.ndarray, y: Union[np.ndarray, None] = None) -> float:
+    def overlap_scoring(self, X: np.ndarray, y: np.ndarray | None = None) -> float:
         """
         Calculates the overlap percentage between the nearest neighbors in the reduced
         dimension space and the original high-dimensional space.
@@ -425,7 +440,7 @@ class DRScorer:
             overlap_percentage -= k / (N - 1) * 100
         return overlap_percentage
 
-    def overlap_scoring_list(self, X: np.ndarray, y: Union[np.ndarray, None] = None) -> List[float]:
+    def overlap_scoring_list(self, X: np.ndarray, y: np.ndarray | None = None) -> list[float]:
         """
         Calculates per-point overlap fraction between nearest neighbors in the reduced
         dimension space and the original high-dimensional space.
@@ -439,14 +454,14 @@ class DRScorer:
         """
         k = self.scoring_params.n_neighbors
 
-        if self.scoring_params.low_dim_metric == 'euclidean':
+        if self.scoring_params.low_dim_metric == "euclidean":
             X_transformed_dist = euclidean_distance_square_numba(X, X)
-        elif self.scoring_params.low_dim_metric == 'tanimoto':
+        elif self.scoring_params.low_dim_metric == "tanimoto":
             X_transformed_dist = tanimoto_int_similarity_matrix_numba(X, X)
         else:
             raise ValueError(f"Unsupported low_dim_metric '{self.scoring_params.low_dim_metric}'")
 
-        nn_transformed = NearestNeighbors(n_neighbors=k + 1, metric='precomputed').fit(X_transformed_dist)
+        nn_transformed = NearestNeighbors(n_neighbors=k + 1, metric="precomputed").fit(X_transformed_dist)
         _, indices_transformed = nn_transformed.kneighbors(X_transformed_dist, n_neighbors=k + 1)
 
         indices_original = self.scoring_params.ambient_dim_indices
@@ -461,16 +476,26 @@ class DRScorer:
         return overlap_count_ls
 
     @staticmethod
-    def multi_overlap_percentage(matrices: list, labels: list, k_values: list, normalize: bool = False,
-                                 exclude_duplicates: bool = False, calculate_tanimoto_preservation: bool = False,
-                                 high_dim_distances=None, coords_sets=None, keep_std=False, return_dict=False) -> dict:
+    def multi_overlap_percentage(
+        matrices: list,
+        labels: list,
+        k_values: list,
+        normalize: bool = False,
+        exclude_duplicates: bool = False,
+        calculate_tanimoto_preservation: bool = False,
+        high_dim_distances=None,
+        coords_sets=None,
+        keep_std=False,
+        return_dict=False,
+    ) -> dict:
         """
         Compute the overlap percentages and optionally the preservation of high-dimensional neighbors.
         """
 
         if calculate_tanimoto_preservation and (high_dim_distances is None or coords_sets is None):
             raise ValueError(
-                "High dimensional distances and coordinate sets must be provided for preservation calculations.")
+                "High dimensional distances and coordinate sets must be provided for preservation calculations."
+            )
 
         N = matrices[0].shape[0]
 
@@ -478,7 +503,7 @@ class DRScorer:
         preservation_results = defaultdict(dict)
         pairs_seen = set()
         for k in k_values:
-            nn_indices = [np.argsort(m, axis=1, kind='stable')[:, :k + 1] for m in matrices]
+            nn_indices = [np.argsort(m, axis=1, kind="stable")[:, : k + 1] for m in matrices]
             for i in range(len(matrices)):
                 for j in range(i + 1, len(matrices)):
                     for idx in range(N):
@@ -491,7 +516,7 @@ class DRScorer:
                             intersection = len(new_pairs)
                         else:
                             intersection = len(set_i.intersection(set_j))
-                        key = (labels[i] + ' & ' + labels[j], k)
+                        key = (labels[i] + " & " + labels[j], k)
                         overlap_percentages[key][idx] = intersection / k * 100
                         if normalize:
                             overlap_percentages[key][idx] -= k / (N - 1) * 100
@@ -511,8 +536,8 @@ class DRScorer:
                 else:
                     overlap_percentages[key] = overlap_percentages[key].mean()
             return overlap_percentages
-            #overlap_percentages = np.mean(overlap_percentages)
-        #, preservation_results if calculate_tanimoto_preservation else overlap_percentages
+            # overlap_percentages = np.mean(overlap_percentages)
+        # , preservation_results if calculate_tanimoto_preservation else overlap_percentages
 
     # Backward-compatible aliases to module-level functions
     correlate_distances = staticmethod(correlate_distances)
@@ -532,8 +557,9 @@ class DRScorer:
     plot_preservation_metrics = staticmethod(plot_preservation_metrics)
 
 
-def calculate_nn_overlap_list(coords: np.ndarray, indices_original: np.ndarray, k_neighbors: List[int],
-                              n_components: int = 2) -> List[float]:
+def calculate_nn_overlap_list(
+    coords: np.ndarray, indices_original: np.ndarray, k_neighbors: list[int], n_components: int = 2
+) -> list[float]:
     """
     Calculate the nearest neighbor overlap scores for different k values.
 
@@ -551,9 +577,9 @@ def calculate_nn_overlap_list(coords: np.ndarray, indices_original: np.ndarray, 
         scoring_params = ScoringParams(
             n_neighbors=k,
             split=False,
-            ambient_dim_indices=indices_original[:, :k + 1],  # TODO check if indices_original is sorted. Should be OK
-            low_dim_metric='euclidean',
-            normalize=False
+            ambient_dim_indices=indices_original[:, : k + 1],  # TODO check if indices_original is sorted. Should be OK
+            low_dim_metric="euclidean",
+            normalize=False,
         )
         scorer = DRScorer(estimator=None, scoring_params=scoring_params)
         nn_overlap_list.append(scorer.overlap_scoring(coords[:, :n_components]))
@@ -561,12 +587,12 @@ def calculate_nn_overlap_list(coords: np.ndarray, indices_original: np.ndarray, 
 
 
 def calculate_metrics(
-        ambient_dist: np.ndarray,
-        latent_dist: np.ndarray,
-        k_neighbors: List[int],
-        num_samples: Optional[int] = None,
-        num_repeats: Optional[int] = 3
-) -> Dict[str, Any]:
+    ambient_dist: np.ndarray,
+    latent_dist: np.ndarray,
+    k_neighbors: list[int],
+    num_samples: int | None = None,
+    num_repeats: int | None = 3,
+) -> dict[str, Any]:
     """
     Calculate various metrics for dimensionality reduction evaluation, with optional sampling.
 
@@ -603,8 +629,9 @@ def calculate_metrics(
             sampled_dist_latent = latent_dist[indices][:, indices]
 
             q_corank = coranking_matrix(sampled_dist_X, sampled_dist_latent)
-            qnn, lcmc, auc, kmax, qlocal, qglobal, trust_ls, cont_ls = coranking_measures(q_corank,
-                                                                                                   k_neighbors=k_neighbors)
+            qnn, lcmc, auc, kmax, qlocal, qglobal, trust_ls, cont_ls = coranking_measures(
+                q_corank, k_neighbors=k_neighbors
+            )
 
             qnn_list[i] = qnn
             lcmc_list[i] = lcmc
@@ -617,35 +644,34 @@ def calculate_metrics(
 
         # Calculate mean and standard deviation for metrics
         metrics = {
-            'QNN': (np.mean(qnn_list, axis=0), np.std(qnn_list, axis=0)),
-            'LCMC': (np.mean(lcmc_list, axis=0), np.std(lcmc_list, axis=0)),
-            'AUC': (np.mean(auc_list), np.std(auc_list)),
-            'kmax': (np.mean(kmax_list), np.std(kmax_list)),
-            'Qlocal': (np.mean(qlocal_list), np.std(qlocal_list)),
-            'Qglobal': (np.mean(qglobal_list), np.std(qglobal_list)),
-            'trust_ls': (np.mean(trust_ls_list, axis=0), np.std(trust_ls_list, axis=0)),
-            'cont_ls': (np.mean(cont_ls_list, axis=0), np.std(cont_ls_list, axis=0)),
+            "QNN": (np.mean(qnn_list, axis=0), np.std(qnn_list, axis=0)),
+            "LCMC": (np.mean(lcmc_list, axis=0), np.std(lcmc_list, axis=0)),
+            "AUC": (np.mean(auc_list), np.std(auc_list)),
+            "kmax": (np.mean(kmax_list), np.std(kmax_list)),
+            "Qlocal": (np.mean(qlocal_list), np.std(qlocal_list)),
+            "Qglobal": (np.mean(qglobal_list), np.std(qglobal_list)),
+            "trust_ls": (np.mean(trust_ls_list, axis=0), np.std(trust_ls_list, axis=0)),
+            "cont_ls": (np.mean(cont_ls_list, axis=0), np.std(cont_ls_list, axis=0)),
         }
     else:
         q_corank = coranking_matrix(ambient_dist, latent_dist)
-        qnn, lcmc, auc, kmax, qlocal, qglobal, trust_ls, cont_ls = coranking_measures(q_corank,
-                                                                                               k_neighbors=k_neighbors)
+        qnn, lcmc, auc, kmax, qlocal, qglobal, trust_ls, cont_ls = coranking_measures(q_corank, k_neighbors=k_neighbors)
 
         metrics = {
-            'QNN': qnn,
-            'LCMC': lcmc,
-            'AUC': auc,
-            'kmax': kmax,
-            'Qlocal': qlocal,
-            'Qglobal': qglobal,
-            'trust_ls': trust_ls,
-            'cont_ls': cont_ls,
+            "QNN": qnn,
+            "LCMC": lcmc,
+            "AUC": auc,
+            "kmax": kmax,
+            "Qlocal": qlocal,
+            "Qglobal": qglobal,
+            "trust_ls": trust_ls,
+            "cont_ls": cont_ls,
         }
 
     return metrics
 
 
-def fit_nearest_neighbors(distance_matrix: np.ndarray, k_neighbors: int) -> Tuple[NearestNeighbors, np.ndarray]:
+def fit_nearest_neighbors(distance_matrix: np.ndarray, k_neighbors: int) -> tuple[NearestNeighbors, np.ndarray]:
     """
     Fit the NearestNeighbors model and find nearest neighbors indices.
 
@@ -656,13 +682,12 @@ def fit_nearest_neighbors(distance_matrix: np.ndarray, k_neighbors: int) -> Tupl
     Returns:
         Tuple[NearestNeighbors, np.ndarray]: NearestNeighbors model and neighbors indices.
     """
-    nn_model = NearestNeighbors(n_neighbors=k_neighbors + 1, metric='precomputed').fit(distance_matrix)
+    nn_model = NearestNeighbors(n_neighbors=k_neighbors + 1, metric="precomputed").fit(distance_matrix)
     _, indices = nn_model.kneighbors(distance_matrix, n_neighbors=k_neighbors)
     return nn_model, indices
 
 
-def prepare_nearest_neighbors(distance_matrix: np.ndarray, k_neighbors: int) -> Tuple[
-    NearestNeighbors, Any]:
+def prepare_nearest_neighbors(distance_matrix: np.ndarray, k_neighbors: int) -> tuple[NearestNeighbors, Any]:
     """
     Prepare nearest neighbors and scoring parameters based on the distance matrices.
 
@@ -674,15 +699,15 @@ def prepare_nearest_neighbors(distance_matrix: np.ndarray, k_neighbors: int) -> 
         Tuple[NearestNeighbors, Any]: NearestNeighbors model and scoring parameters.
     """
 
-    nn_original = NearestNeighbors(n_neighbors=k_neighbors + 1, metric='precomputed').fit(distance_matrix)
+    nn_original = NearestNeighbors(n_neighbors=k_neighbors + 1, metric="precomputed").fit(distance_matrix)
     _, indices_original = nn_original.kneighbors(distance_matrix, n_neighbors=k_neighbors)
 
     scoring_params = ScoringParams(
         n_neighbors=k_neighbors,
         split=False,
         ambient_dim_indices=indices_original,
-        low_dim_metric='euclidean',
-        normalize=False
+        low_dim_metric="euclidean",
+        normalize=False,
     )
 
     return indices_original, scoring_params
@@ -702,9 +727,9 @@ def calculate_distance_matrix(data: np.ndarray, metric: str) -> np.ndarray:
     Raises:
         ValueError: If an unsupported similarity metric is provided.
     """
-    if metric == 'euclidean':
+    if metric == "euclidean":
         return euclidean_distance_square_numba(data, data)
-    elif metric == 'tanimoto':
+    elif metric == "tanimoto":
         return 1 - tanimoto_int_similarity_matrix_numba(data, data)
     else:
         raise ValueError(f"Unsupported similarity metric: {metric}")
@@ -725,12 +750,13 @@ def calculate_distance_2_matrices(data_1: np.ndarray, data_2: np.ndarray, metric
     Raises:
         ValueError: If an unsupported similarity metric is provided.
     """
-    if metric == 'euclidean':
+    if metric == "euclidean":
         return euclidean_distance_square_numba(data_1, data_2)
-    elif metric == 'tanimoto':
+    elif metric == "tanimoto":
         return 1 - tanimoto_int_similarity_matrix_numba(data_1, data_2)
     else:
         raise ValueError(f"Unsupported similarity metric: {metric}")
+
 
 def count_neighbors_with_high_similarity(similarity_matrix: np.ndarray, threshold: float = 0.7) -> np.ndarray:
     """
@@ -751,6 +777,7 @@ def count_neighbors_with_high_similarity(similarity_matrix: np.ndarray, threshol
     neighbor_counts = np.count_nonzero(similarity_matrix_no_diag >= threshold, axis=1)
 
     return neighbor_counts
+
 
 def indices_of_neighbors_with_high_similarity(similarity_matrix: np.ndarray, threshold: float = 0.7) -> np.ndarray:
     """

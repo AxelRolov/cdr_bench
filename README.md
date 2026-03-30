@@ -2,13 +2,6 @@
   <img src="assets/banner.png" alt="CDR Bench — Chemical Data Dimensionality Reduction Benchmarking Framework" width="800">
 </p>
 
-<h1 align="center">CDR Bench</h1>
-
-<p align="center">
-  <strong>Benchmarking framework for dimensionality reduction on chemical datasets</strong><br>
-  <a href="https://axelrolov.github.io/cdr_bench/">Documentation</a> · <a href="https://doi.org/10.1002/minf.202400265">Paper</a>
-</p>
-
 <p align="center">
   <a href="https://github.com/AxelRolov/cdr_bench/actions/workflows/ci.yml"><img src="https://github.com/AxelRolov/cdr_bench/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/AxelRolov/cdr_bench/commits/main"><img src="https://img.shields.io/github/last-commit/AxelRolov/cdr_bench" alt="last commit"></a>

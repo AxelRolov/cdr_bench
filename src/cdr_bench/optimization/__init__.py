@@ -1,10 +1,10 @@
+from .optimization import Optimizer, create_param_grid, perform_optimization
 from .params import (
-    ScoringParams,
-    OptimizerParams,
     DimReducerParams,
-    PCAParams,
-    UMAPParams,
-    TSNEParams,
     GTMParams,
+    OptimizerParams,
+    PCAParams,
+    ScoringParams,
+    TSNEParams,
+    UMAPParams,
 )
-from .optimization import Optimizer, perform_optimization, create_param_grid

@@ -1,6 +1,8 @@
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional, List, Union
+from typing import Any
+
 import numpy as np
+
 
 @dataclass
 class ScoringParams:
@@ -15,15 +17,16 @@ class ScoringParams:
         low_dim_metric (str): Metric for the low-dimensional space.
         normalize (Any): Flag to normalize the score.
     """
+
     ambient_dim_indices: np.ndarray
     n_neighbors: int
     other_param: Any = None
     split: Any = False
-    low_dim_metric: str = 'euclidean'
+    low_dim_metric: str = "euclidean"
     normalize: Any = False
 
     @classmethod
-    def from_neighbors_indices(cls, k_neighbors: int, indices: np.ndarray) -> 'ScoringParams':
+    def from_neighbors_indices(cls, k_neighbors: int, indices: np.ndarray) -> "ScoringParams":
         """
         Create ScoringParams from nearest neighbors indices.
 
@@ -38,46 +41,51 @@ class ScoringParams:
             ambient_dim_indices=indices,
             n_neighbors=k_neighbors,
             split=False,
-            low_dim_metric='euclidean',
-            normalize=False
+            low_dim_metric="euclidean",
+            normalize=False,
         )
+
 
 @dataclass
 class OptimizerParams:
     dimensionality_reduction_model: Any
-    param_grid: Dict[str, Any]
+    param_grid: dict[str, Any]
     scoring_params: ScoringParams
     save_path: str = None
     verbose: int = 0
+
 
 # Define the base dataclass for common parameters
 @dataclass
 class DimReducerParams:
     method: str
-    n_components: Optional[int] = None
+    n_components: int | None = None
+
 
 # Define derived dataclasses for specific methods
 @dataclass
 class PCAParams(DimReducerParams):
-    method: str = 'PCA'
-    pca_engine: Optional[dict] = None
+    method: str = "PCA"
+    pca_engine: dict | None = None
+
 
 @dataclass
 class UMAPParams(DimReducerParams):
-    method: str = 'UMAP'
+    method: str = "UMAP"
     n_neighbors: int = 15
     min_dist: float = 0.1
-    init: str = 'pca'
-    metric: str = 'euclidean'
+    init: str = "pca"
+    metric: str = "euclidean"
     n_jobs: int = 24
+
 
 @dataclass
 class TSNEParams(DimReducerParams):
-    method: str = 't-SNE'
+    method: str = "t-SNE"
     perplexity: float = 30.0
-    initialization: str = 'pca'
-    learning_rate: Union[float, str] = 'auto'
-    negative_gradient_method: str = 'fft'
+    initialization: str = "pca"
+    learning_rate: float | str = "auto"
+    negative_gradient_method: str = "fft"
     n_jobs: int = 24
     verbose: int = 0
 
@@ -85,24 +93,26 @@ class TSNEParams(DimReducerParams):
 @dataclass
 class TMAPParams(DimReducerParams):
     """Class for keeping track of TMAP-specific parameters, inheriting from DimReducerParams."""
-    method: str = 'TMAP'
+
+    method: str = "TMAP"
     k: int = 10
     node_size: float = 1 / 26
     mmm_repeats: int = 2
     sl_extra_scaling_steps: int = 5
-    sl_scaling_type: str = 'RelativeToAvgLength'
+    sl_scaling_type: str = "RelativeToAvgLength"
 
 
 @dataclass
 class GTMParams(DimReducerParams):
     """Class for keeping track of GTM-specific parameters, inheriting from DimReducerParams."""
+
     num_nodes: int = field(default_factory=int)
     num_basis_functions: int = field(default_factory=int)
     basis_width: float = 1.1
     reg_coeff: float = 1.0
 
     @staticmethod
-    def default_params(n_components: int) -> Dict[str, Any]:
+    def default_params(n_components: int) -> dict[str, Any]:
         """
         Returns default parameters for GTM based on the number of components.
 
@@ -122,10 +132,10 @@ class GTMParams(DimReducerParams):
             )
         elif n_components == 2:
             return {
-                'num_nodes': 225,
-                'num_basis_functions': 169,
-                'basis_width': 1.0,
-                'reg_coeff': 1.0,
+                "num_nodes": 225,
+                "num_basis_functions": 169,
+                "basis_width": 1.0,
+                "reg_coeff": 1.0,
             }
         else:
             raise ValueError("Unsupported number of components")

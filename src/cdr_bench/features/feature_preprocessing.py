@@ -1,6 +1,5 @@
 import pickle
 from pathlib import Path
-from typing import Optional, Union, Tuple
 
 import numpy as np
 import pandas as pd
@@ -9,8 +8,9 @@ from rdkit.Chem import rdFingerprintGenerator
 from sklearn.preprocessing import StandardScaler
 
 
-def standardize_features(features: np.ndarray, return_standardizer: bool = False) -> Union[
-    np.ndarray, Tuple[np.ndarray, StandardScaler]]:
+def standardize_features(
+    features: np.ndarray, return_standardizer: bool = False
+) -> np.ndarray | tuple[np.ndarray, StandardScaler]:
     """
     Standardize the feature vectors by removing the mean and scaling to unit variance.
 
@@ -46,15 +46,15 @@ def generate_fingerprints(data_df: pd.DataFrame, radius: int = 2, fp_size: int =
     """
     mfpgen = rdFingerprintGenerator.GetMorganGenerator(radius=radius, fpSize=fp_size)
 
-    #if pandarell_available:
+    # if pandarell_available:
     #    data_df['fp'] = data_df['smi'].parallel_apply(lambda x: gen_desc(mfpgen, x))
-    #else:
+    # else:
     #    data_df['fp'] = data_df['smi'].apply(lambda x: gen_desc(mfpgen, x))
-    data_df['fp'] = data_df['smi'].apply(lambda x: gen_desc(mfpgen, x))
+    data_df["fp"] = data_df["smi"].apply(lambda x: gen_desc(mfpgen, x))
     return data_df
 
 
-def gen_desc(generator: rdFingerprintGenerator, smi: str) -> Optional[np.ndarray]:
+def gen_desc(generator: rdFingerprintGenerator, smi: str) -> np.ndarray | None:
     """
     Generate a molecular fingerprint as a NumPy array from a SMILES string.
 
@@ -70,7 +70,7 @@ def gen_desc(generator: rdFingerprintGenerator, smi: str) -> Optional[np.ndarray
         if mol is None:
             return None
         return generator.GetCountFingerprintAsNumPy(mol)
-    except Exception as e:
+    except Exception:
         return None
 
 
@@ -88,19 +88,19 @@ def get_features(file_path: str, use_fingerprints: bool = True, radius: int = 2,
         pd.DataFrame: DataFrame with features.
     """
     file_dir = Path(file_path).parent
-    features_file = file_dir / 'features.pkl'
+    features_file = file_dir / "features.pkl"
 
-    data_df = None  #csv_2_df(file_path)
+    data_df = None  # csv_2_df(file_path)
 
     if use_fingerprints:
         data_df = generate_fingerprints(data_df, radius, fp_size)
     else:
-        with open(features_file, 'rb') as f:
+        with open(features_file, "rb") as f:
             features = pickle.load(f)
         if len(features) != len(data_df):
             raise ValueError("The number of features does not match the number of data entries.")
 
-        data_df['fp'] = pd.Series(features)
+        data_df["fp"] = pd.Series(features)
 
     return data_df
 
@@ -132,9 +132,9 @@ def remove_constant_features(data_df: pd.DataFrame, indices: np.ndarray, feature
     Returns:
         pd.DataFrame: DataFrame with non-constant variance features.
     """
-    #if pandarell_available:  # TODO parallel_apply is not working with the debugging apparently
+    # if pandarell_available:  # TODO parallel_apply is not working with the debugging apparently
     #    data_df['fp'] = data_df['fp'].parallel_apply(lambda x: x[indices])
-    #else:
+    # else:
     #    data_df['fp'] = data_df['fp'].apply(lambda x: x[indices])
     data_df[feature_name] = data_df[feature_name].apply(lambda x: x[indices])
     return data_df
