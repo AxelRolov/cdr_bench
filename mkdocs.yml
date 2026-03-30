@@ -33,6 +33,7 @@ plugins:
         python:
           paths: [src]
           options:
+            allow_inspection: false
             docstring_style: google
             show_source: false
             show_root_heading: true

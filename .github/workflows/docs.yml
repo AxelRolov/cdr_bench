@@ -27,7 +27,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync --group docs
+        run: uv sync --only-group docs
 
       - name: Configure git
         run: |
