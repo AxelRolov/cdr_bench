@@ -6,7 +6,7 @@ import glob
 import logging
 import h5py
 from typing import Any, Dict, List, Optional, Tuple
-from src.cdr_bench.optimization.params import TSNEParams, GTMParams, UMAPParams
+from src.cdr_bench.optimization.params import TSNEParams, GTMParams, UMAPParams, TMAPParams
 from src.cdr_bench.visualization.visualization import plot_optimization_results
 from src.cdr_bench.scoring.scoring import calculate_distance_matrix, calculate_nn_overlap_list, \
     calculate_metrics, fit_nearest_neighbors
@@ -59,12 +59,13 @@ def initialize_methods_and_params(test: bool) -> tuple:
     umap_params = load_config(os.path.join(config_dir, 'umap_config.toml'))
     tsne_params = load_config(os.path.join(config_dir, 'tsne_config.toml'))
     gtm_params = load_config(os.path.join(config_dir, 'gtm_config.toml'))
+    tmap_params = load_config(os.path.join(config_dir, 'tmap_config.toml'))
 
     # Handle test mode by limiting the number of parameter combinations
     if test:  # TODO correct bug here
         pass
         """
-        for param_grid in [umap_params, tsne_params, gtm_params]:
+        for param_grid in [umap_params, tsne_params, gtm_params, tmap_params]:
             for key in param_grid:
                 param_grid[key] = [param_grid[key][0]]  # Limit to first value for each parameter
         """
@@ -73,14 +74,16 @@ def initialize_methods_and_params(test: bool) -> tuple:
     method_grids = {
         'UMAP': umap_params,
         't-SNE': tsne_params,
-        'GTM': gtm_params
+        'GTM': gtm_params,
+        'TMAP': tmap_params
     }
 
 
     method_params = {
         't-SNE': TSNEParams(method='t-SNE', n_jobs=12, negative_gradient_method='fft', initialization='pca'),
         'UMAP': UMAPParams(method='UMAP', n_jobs=12, init='pca'),
-        'GTM': create_gtm_params(n_components=2)
+        'GTM': create_gtm_params(n_components=2),
+        'TMAP': TMAPParams(method='TMAP')
     }
 
     return method_grids, method_params
@@ -182,7 +185,10 @@ def process_dataset(dataset_name: str, feature_name: str, dataset: pd.DataFrame,
                 else:
                     coords = pca_coords[:, :n_components]  # TODO check if it's needed here
             else:
-                if optimization_type == 'outsample':
+                if optimization_type == 'outsample' and method == 'TMAP':
+                    logging.warning(f"TMAP does not support outsample optimization. Skipping TMAP.")
+                    continue
+                elif optimization_type == 'outsample':
                     # Perform optimization for the current method
                     optimizer = perform_optimization(method, method_grids[method], method_params[method],
                                                      X_transformed, None,

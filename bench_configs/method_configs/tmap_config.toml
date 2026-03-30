@@ -1,0 +1,5 @@
+# TMAP parameters
+# k: number of nearest neighbors for k-NN graph construction
+k = [10, 20, 50, 100]
+node_size = [0.038, 0.05, 0.1]
+sl_extra_scaling_steps = [2, 5, 10]

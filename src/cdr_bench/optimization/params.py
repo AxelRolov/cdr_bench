@@ -83,6 +83,17 @@ class TSNEParams(DimReducerParams):
 
 
 @dataclass
+class TMAPParams(DimReducerParams):
+    """Class for keeping track of TMAP-specific parameters, inheriting from DimReducerParams."""
+    method: str = 'TMAP'
+    k: int = 10
+    node_size: float = 1 / 26
+    mmm_repeats: int = 2
+    sl_extra_scaling_steps: int = 5
+    sl_scaling_type: str = 'RelativeToAvgLength'
+
+
+@dataclass
 class GTMParams(DimReducerParams):
     """Class for keeping track of GTM-specific parameters, inheriting from DimReducerParams."""
     num_nodes: int = field(default_factory=int)

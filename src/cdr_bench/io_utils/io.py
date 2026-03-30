@@ -432,7 +432,7 @@ def validate_config(config: dict) -> None:
         raise ValueError(f"output_dir does not exist or is not a directory: {config['output_dir']}")
 
     # Check if methods list contains valid methods
-    valid_methods = ["UMAP", "t-SNE", "GTM", "PCA"]
+    valid_methods = ["UMAP", "t-SNE", "GTM", "PCA", "TMAP"]
     for method in config["methods"]:
         if method not in valid_methods:
             raise ValueError(f"Invalid method: {method}. Valid methods are: {valid_methods}")
