@@ -1525,7 +1525,7 @@
                 <code>non_feature_columns</code>
             </td>
             <td>
-                  <code><span title="typing.Union">Union</span>[<span title="typing.List">List</span>[<span title="str">str</span>], <span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="str">str</span>]]</code>
+                  <code><span title="Union">Union</span>[<span title="List">List</span>[<span title="str">str</span>], <span title="Dict">Dict</span>[<span title="str">str</span>, <span title="str">str</span>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1541,7 +1541,7 @@
                 <code>feature_columns</code>
             </td>
             <td>
-                  <code><span title="typing.Union">Union</span>[<span title="typing.List">List</span>[<span title="str">str</span>], <span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="str">str</span>]]</code>
+                  <code><span title="Union">Union</span>[<span title="List">List</span>[<span title="str">str</span>], <span title="Dict">Dict</span>[<span title="str">str</span>, <span title="str">str</span>]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1668,7 +1668,7 @@ feature_name (str): The name of the feature to which to save the data.</p>
                 <code>method_names</code>
             </td>
             <td>
-                  <code><span title="typing.List">List</span>[<span title="str">str</span>]</code>
+                  <code><span title="List">List</span>[<span title="str">str</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1694,7 +1694,7 @@ feature_name (str): The name of the feature to which to save the data.</p>
       <tbody>
           <tr class="doc-section-item">
 <td><code>Tuple</code></td>            <td>
-                  <code><span title="typing.Tuple">Tuple</span>[<span title="pandas.DataFrame">DataFrame</span>, <span title="numpy.ndarray">ndarray</span>, <span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Dict">Dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]]</code>
+                  <code><span title="tuple">tuple</span>[<span title="pandas.DataFrame">DataFrame</span>, <span title="numpy.ndarray">ndarray</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="dict">dict</span>[<span title="str">str</span>, <span title="typing.Any">Any</span>]]]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1856,7 +1856,7 @@ list of np.array: The list of loaded arrays of coordinates.</p>
                 <code>val_data_df</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="pandas.DataFrame">DataFrame</span>]</code>
+                  <code><span title="Optional">Optional</span>[<span title="pandas.DataFrame">DataFrame</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1888,7 +1888,7 @@ list of np.array: The list of loaded arrays of coordinates.</p>
                 <code>scaling</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="str">str</span>]</code>
+                  <code><span title="Optional">Optional</span>[<span title="str">str</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -1914,11 +1914,11 @@ list of np.array: The list of loaded arrays of coordinates.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Tuple">Tuple</span>[<span title="numpy.ndarray">ndarray</span>, <span title="typing.Optional">Optional</span>[<span title="numpy.ndarray">ndarray</span>], <span title="numpy.ndarray">ndarray</span>, <span title="typing.Optional">Optional</span>[<span title="numpy.ndarray">ndarray</span>]]</code>
+                  <code><span title="tuple">tuple</span>[<span title="numpy.ndarray">ndarray</span>, <span title="numpy.ndarray">ndarray</span> | None, <span title="numpy.ndarray">ndarray</span>, <span title="numpy.ndarray">ndarray</span> | None]</code>
             </td>
             <td>
               <div class="doc-md-description">
-                <p>Tuple[pd.DataFrame, Optional[pd.DataFrame], np.ndarray, Optional[np.ndarray]]: 
+                <p>Tuple[pd.DataFrame, Optional[pd.DataFrame], np.ndarray, Optional[np.ndarray]]:
 - processed data DataFrame with constant features removed
 - processed validation DataFrame with constant features removed (if provided)
 - scaled high-dimensional data (X_transformed)
@@ -2084,7 +2084,7 @@ list of np.array: The list of loaded arrays of coordinates.</p>
                 <code>y_transformed</code>
             </td>
             <td>
-                  <code><span title="typing.Optional">Optional</span>[<span title="numpy.ndarray">ndarray</span>]</code>
+                  <code><span title="Optional">Optional</span>[<span title="numpy.ndarray">ndarray</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
@@ -2142,7 +2142,7 @@ list of np.array: The list of loaded arrays of coordinates.</p>
       <tbody>
           <tr class="doc-section-item">
             <td>
-                  <code><span title="typing.Tuple">Tuple</span>[<span title="numpy.ndarray">ndarray</span>, <span title="typing.Optional">Optional</span>[<span title="numpy.ndarray">ndarray</span>], <span title="typing.Any">Any</span>]</code>
+                  <code><span title="tuple">tuple</span>[<span title="numpy.ndarray">ndarray</span>, <span title="numpy.ndarray">ndarray</span> | None, <span title="typing.Any">Any</span>]</code>
             </td>
             <td>
               <div class="doc-md-description">
