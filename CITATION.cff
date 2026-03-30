@@ -1,0 +1,37 @@
+cff-version: 1.2.0
+title: "cdr_bench: Chemical Data Dimensionality Reduction Benchmarking Framework"
+message: "If you use this software, please cite the following publication."
+type: software
+license: MIT
+repository-code: https://github.com/AxelRolov/cdr_bench
+url: https://axelrolov.github.io/cdr_bench/
+authors:
+  - family-names: Orlov
+    given-names: Alexey A.
+  - family-names: Akhmetshin
+    given-names: Tagir N.
+  - family-names: Horvath
+    given-names: Dragos
+  - family-names: Marcou
+    given-names: Gilles
+  - family-names: Varnek
+    given-names: Alexandre
+preferred-citation:
+  type: article
+  title: "From High Dimensions to Human Insight: Exploring Dimensionality Reduction for Chemical Space Visualization"
+  authors:
+    - family-names: Orlov
+      given-names: Alexey A.
+    - family-names: Akhmetshin
+      given-names: Tagir N.
+    - family-names: Horvath
+      given-names: Dragos
+    - family-names: Marcou
+      given-names: Gilles
+    - family-names: Varnek
+      given-names: Alexandre
+  journal: Molecular Informatics
+  volume: 44
+  issue: 1
+  year: 2024
+  doi: 10.1002/minf.202400265

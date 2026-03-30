@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="CDR Bench — Chemical Data Dimensionality Reduction Benchmarking Framework" width="800">
+</p>
+
 # cdr_bench
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -8,8 +12,9 @@ Benchmarking framework for dimensionality reduction (DR) techniques on chemical 
 
 Based on the publication:
 
-> Orlov, A. et al. "Benchmarking Dimensionality Reduction Techniques on Chemical Datasets."
-> *Molecular Informatics*, 2024. [DOI: 10.1002/minf.202400265](https://onlinelibrary.wiley.com/doi/full/10.1002/minf.202400265)
+> Orlov, A. A., Akhmetshin, T. N., Horvath, D., Marcou, G., & Varnek, A.
+> "From High Dimensions to Human Insight: Exploring Dimensionality Reduction for Chemical Space Visualization."
+> *Molecular Informatics*, 2024, 44(1). [DOI: 10.1002/minf.202400265](https://doi.org/10.1002/minf.202400265)
 
 ## Installation
 
@@ -72,10 +77,13 @@ The `datasets/` directory contains ChEMBL subset datasets used in the study. Ful
 ## Citation
 
 ```bibtex
-@article{orlov2024benchmarking,
-  title={Benchmarking Dimensionality Reduction Techniques on Chemical Datasets},
-  author={Orlov, Alexey},
+@article{orlov2024high,
+  title={From High Dimensions to Human Insight: Exploring Dimensionality Reduction for Chemical Space Visualization},
+  author={Orlov, Alexey A. and Akhmetshin, Tagir N. and Horvath, Dragos and Marcou, Gilles and Varnek, Alexandre},
   journal={Molecular Informatics},
+  volume={44},
+  number={1},
+  pages={e202400265},
   year={2024},
   doi={10.1002/minf.202400265}
 }
