@@ -2,13 +2,28 @@
   <img src="assets/banner.png" alt="CDR Bench — Chemical Data Dimensionality Reduction Benchmarking Framework" width="800">
 </p>
 
-# cdr_bench
+<h1 align="center">CDR Bench</h1>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/)
-[![DOI](https://img.shields.io/badge/DOI-10.5281%2Fzenodo.13752690-blue)](https://doi.org/10.5281/zenodo.13752690)
+<p align="center">
+  <strong>Benchmarking framework for dimensionality reduction on chemical datasets</strong><br>
+  <a href="https://axelrolov.github.io/cdr_bench/">Documentation</a> · <a href="https://doi.org/10.1002/minf.202400265">Paper</a>
+</p>
 
-Benchmarking framework for dimensionality reduction (DR) techniques on chemical datasets. Implements systematic hyperparameter optimization and quality evaluation for PCA, UMAP, t-SNE, and GTM on molecular descriptor spaces.
+<p align="center">
+  <a href="https://github.com/AxelRolov/cdr_bench/actions/workflows/ci.yml"><img src="https://github.com/AxelRolov/cdr_bench/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://github.com/AxelRolov/cdr_bench/commits/main"><img src="https://img.shields.io/github/last-commit/AxelRolov/cdr_bench" alt="last commit"></a>
+  <img src="https://img.shields.io/github/stars/AxelRolov/cdr_bench" alt="Stars">
+  <a href="https://github.com/AxelRolov/cdr_bench/issues"><img src="https://img.shields.io/github/issues/AxelRolov/cdr_bench" alt="Issues"></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11-blue" alt="Python 3.11">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/code%20style-ruff-orange" alt="code style: ruff">
+  <img src="https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit" alt="pre-commit: enabled">
+  <a href="https://axelrolov.github.io/cdr_bench/"><img src="https://img.shields.io/badge/docs-mkdocs-blue" alt="docs: mkdocs"></a>
+  <a href="https://doi.org/10.5281/zenodo.13752690"><img src="https://img.shields.io/badge/DOI-10.5281%2Fzenodo.13752690-blue" alt="DOI"></a>
+</p>
 
 Based on the publication:
 
