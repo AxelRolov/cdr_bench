@@ -1,8 +1,8 @@
 from rdkit import Chem
 from rdkit.Chem import Descriptors
-from typing import List, Optional
 
-def calculate_descriptors(mol: Chem.Mol) -> List[Optional[float]]:
+
+def calculate_descriptors(mol: Chem.Mol) -> list[float | None]:
     """
     Calculate six physicochemical properties: HBD, HBA, LogP, MW, TPSA, and RTB.
 

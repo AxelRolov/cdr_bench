@@ -1,15 +1,14 @@
+from collections import Counter
+from typing import Any
+
 import networkx as nx
 import numpy as np
-import pandas as pd
-from collections import Counter
-from scipy.stats import entropy
-from typing import List, Tuple, Dict, Any
 from numba import njit
+from scipy.stats import entropy
 
-from src.cdr_bench.scoring.scoring import tanimoto_int_similarity_matrix_numba
 
 @njit
-def find_edges_above_threshold(similarity_matrix: np.ndarray, threshold: float) -> List[Tuple[int, int, float]]:
+def find_edges_above_threshold(similarity_matrix: np.ndarray, threshold: float) -> list[tuple[int, int, float]]:
     """
     Identify edges (i, j) with weights above a threshold in the similarity matrix using numba.
 
@@ -29,7 +28,8 @@ def find_edges_above_threshold(similarity_matrix: np.ndarray, threshold: float) 
                 edges.append((i, j, similarity_matrix[i, j]))
     return edges
 
-def build_network_from_similarity(similarity_matrix: np.ndarray, cids: List[str], threshold: float) -> nx.Graph:
+
+def build_network_from_similarity(similarity_matrix: np.ndarray, cids: list[str], threshold: float) -> nx.Graph:
     """
     Build a NetworkX graph from a similarity matrix based on a given similarity threshold.
 
@@ -59,7 +59,9 @@ def build_network_from_similarity(similarity_matrix: np.ndarray, cids: List[str]
     return G
 
 
-def generate_networks_for_thresholds(similarity_matrix: np.ndarray, cids: List[str], thresholds: List[float]) -> Dict[float, nx.Graph]:
+def generate_networks_for_thresholds(
+    similarity_matrix: np.ndarray, cids: list[str], thresholds: list[float]
+) -> dict[float, nx.Graph]:
     """
     Generate a dictionary of similarity networks for each specified threshold.
 
@@ -79,8 +81,9 @@ def generate_networks_for_thresholds(similarity_matrix: np.ndarray, cids: List[s
         networks[threshold] = G
     return networks
 
+
 # Function to calculate metrics for a given network
-def calculate_network_metrics(G: nx.Graph, name: str) -> Dict[str, Any]:
+def calculate_network_metrics(G: nx.Graph, name: str) -> dict[str, Any]:
     """
     Calculate various network diversity metrics for a given graph.
 
@@ -95,11 +98,11 @@ def calculate_network_metrics(G: nx.Graph, name: str) -> Dict[str, Any]:
     density = nx.density(G)
 
     # 2. Modularity: Measures the strength of division of the graph into communities # TODO takes to long
-    #communities = list(greedy_modularity_communities(G))
-    #modularity = nx.algorithms.community.quality.modularity(G, communities)
+    # communities = list(greedy_modularity_communities(G))
+    # modularity = nx.algorithms.community.quality.modularity(G, communities)
 
     # 3. Clustering Coefficient: Measures the likelihood that neighbors of a node are also connected # TODO takes to long
-    #clustering_coefficient = nx.average_clustering(G)
+    # clustering_coefficient = nx.average_clustering(G)
 
     # 4. Degree Centrality Distribution (std dev): Standard deviation of degree centrality,
     #    reflecting variability in node connectivity
@@ -115,14 +118,13 @@ def calculate_network_metrics(G: nx.Graph, name: str) -> Dict[str, Any]:
     degree_probabilities = degree_counts / degree_counts.sum()
     network_entropy = entropy(degree_probabilities)
 
-
     # Compile metrics into a dictionary
     return {
         "Network": name,
         "Density": density,
-     #   "Modularity": modularity,  # TODO takes to long
-        #"Clustering Coefficient": clustering_coefficient,  # TODO takes to long
+        #   "Modularity": modularity,  # TODO takes to long
+        # "Clustering Coefficient": clustering_coefficient,  # TODO takes to long
         "Degree Centrality Std Dev": degree_centrality_std,
         "Assortativity Coefficient": assortativity_coefficient,
-        "Network Entropy": network_entropy
+        "Network Entropy": network_entropy,
     }

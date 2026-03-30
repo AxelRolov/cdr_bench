@@ -1,7 +1,7 @@
 import numpy as np
-from typing import Dict
 
-def calculate_similarity_statistics(sim_mat: np.ndarray) -> Dict[str, float]:
+
+def calculate_similarity_statistics(sim_mat: np.ndarray) -> dict[str, float]:
     """
     Calculate statistics on the similarity matrix: min, 1st quartile, median, mean,
     3rd quartile, max, and standard deviation.
@@ -17,12 +17,12 @@ def calculate_similarity_statistics(sim_mat: np.ndarray) -> Dict[str, float]:
 
     # Calculate required statistics
     stats = {
-        'Min': np.min(similarities),
-        '1st Qu.': np.percentile(similarities, 25),
-        'Median': np.median(similarities),
-        'Mean': np.mean(similarities),
-        '3rd Qu.': np.percentile(similarities, 75),
-        'Max': np.max(similarities),
-        'SD': np.std(similarities)
+        "Min": np.min(similarities),
+        "1st Qu.": np.percentile(similarities, 25),
+        "Median": np.median(similarities),
+        "Mean": np.mean(similarities),
+        "3rd Qu.": np.percentile(similarities, 75),
+        "Max": np.max(similarities),
+        "SD": np.std(similarities),
     }
     return stats

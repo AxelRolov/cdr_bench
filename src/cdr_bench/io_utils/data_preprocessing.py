@@ -1,28 +1,28 @@
-import pandas as pd
-import numpy as np
-import warnings
-from typing import Dict, Any, Optional, Tuple, List, Union
-import h5py
 import importlib
+import logging
 import os
 import pickle
-import logging
+import warnings
+from typing import Any
 
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler, MinMaxScaler, FunctionTransformer
+import h5py
+import numpy as np
+import pandas as pd
 from sklearn.decomposition import PCA
-
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import FunctionTransformer, MinMaxScaler, StandardScaler
 from src.cdr_bench.features.feature_preprocessing import find_nonconstant_features, remove_constant_features
 
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
 # Try to import pandarell
 pandarell_available = importlib.util.find_spec("pandarallel") is not None
 
 if pandarell_available:
     from pandarallel import pandarallel
+
     pandarallel.initialize(progress_bar=False)
+
 
 def get_filename(file_path: str) -> str:
     """
@@ -91,6 +91,7 @@ def get_fp_similarity(files: List[str], radius=2, fp_size=1024) -> Tuple[pd.Data
     return mean_tanimoto_similarities, mean_euclidean_similarities
 """
 
+
 def make_pca(X_transformed: np.ndarray, n_components: int) -> PCA:
     """
     Creates and fits a PCA model on the given data.
@@ -140,8 +141,10 @@ def remove_duplicates(dataset_name: str, df: pd.DataFrame, column_name: str) -> 
 
     return df_unique
 
-def prepare_data_for_optimization(data_df: pd.DataFrame, val_data_df: Optional[pd.DataFrame], feature_name: str,
-                                  scaling: Optional[str]) -> Tuple[np.ndarray, Optional[np.ndarray], np.ndarray, Optional[np.ndarray]]:
+
+def prepare_data_for_optimization(
+    data_df: pd.DataFrame, val_data_df: pd.DataFrame | None, feature_name: str, scaling: str | None
+) -> tuple[np.ndarray, np.ndarray | None, np.ndarray, np.ndarray | None]:
     """
     Prepare data for optimization by scaling and optionally transforming reference data.
 
@@ -152,7 +155,7 @@ def prepare_data_for_optimization(data_df: pd.DataFrame, val_data_df: Optional[p
         scaling (Optional[str]): The type of the feature preprocessing to use (standardization by default)
 
     Returns:
-        Tuple[pd.DataFrame, Optional[pd.DataFrame], np.ndarray, Optional[np.ndarray]]: 
+        Tuple[pd.DataFrame, Optional[pd.DataFrame], np.ndarray, Optional[np.ndarray]]:
             - processed data DataFrame with constant features removed
             - processed validation DataFrame with constant features removed (if provided)
             - scaled high-dimensional data (X_transformed)
@@ -164,24 +167,17 @@ def prepare_data_for_optimization(data_df: pd.DataFrame, val_data_df: Optional[p
     non_constant_indices = find_nonconstant_features(X)
     data_df = remove_constant_features(data_df, non_constant_indices, feature_name)
     X = np.vstack(data_df[feature_name]).astype(np.float64)
-    if scaling is None or scaling == 'standardize':
-        scaling_pipeline = Pipeline([
-            ('standard_scaler', StandardScaler())
-        ])
-    elif scaling == 'minmax':
-        scaling_pipeline = Pipeline([
-            ('minmax_scaler', MinMaxScaler()),
-            ('standard_scaler', StandardScaler(with_std=False))
-        ])
+    if scaling is None or scaling == "standardize":
+        scaling_pipeline = Pipeline([("standard_scaler", StandardScaler())])
+    elif scaling == "minmax":
+        scaling_pipeline = Pipeline(
+            [("minmax_scaler", MinMaxScaler()), ("standard_scaler", StandardScaler(with_std=False))]
+        )
 
-    elif scaling == 'center':
-        scaling_pipeline = Pipeline([
-            ('standard_scaler', StandardScaler(with_std=False))
-        ])
-    elif scaling == 'no':
-        scaling_pipeline = Pipeline([
-            ('no_op', FunctionTransformer())
-        ])
+    elif scaling == "center":
+        scaling_pipeline = Pipeline([("standard_scaler", StandardScaler(with_std=False))])
+    elif scaling == "no":
+        scaling_pipeline = Pipeline([("no_op", FunctionTransformer())])
 
     # Fit the pipeline to the data
     scaling_pipeline.fit(X)
@@ -209,7 +205,7 @@ def create_output_directory(output_dir: str, file_path: str) -> str:
     Returns:
         str: The path to the created dataset-specific output directory.
     """
-    dataset_output_dir = os.path.join(output_dir, file_path)#os.path.basename(file_path).split('.')[0])
+    dataset_output_dir = os.path.join(output_dir, file_path)  # os.path.basename(file_path).split('.')[0])
     os.makedirs(dataset_output_dir, exist_ok=True)
     return dataset_output_dir
 
@@ -222,10 +218,13 @@ def save_pkl(data: Any, file_path: str) -> None:
         data (Any): The data to be saved.
         file_path (str): The path to the pickle file.
     """
-    with open(file_path, 'wb') as f:
+    with open(file_path, "wb") as f:
         pickle.dump(data, f)
 
-def get_pca_results(X_transformed: np.ndarray, y_transformed: Optional[np.ndarray], dataset_output_dir: str, n_components: int) -> Tuple[np.ndarray, Optional[np.ndarray], Any]:
+
+def get_pca_results(
+    X_transformed: np.ndarray, y_transformed: np.ndarray | None, dataset_output_dir: str, n_components: int
+) -> tuple[np.ndarray, np.ndarray | None, Any]:
     """
     Perform PCA on the transformed data, and save the PCA results and high-dimensional data to HDF5 files.
 
@@ -246,22 +245,24 @@ def get_pca_results(X_transformed: np.ndarray, y_transformed: Optional[np.ndarra
     os.makedirs(dataset_output_dir, exist_ok=True)
 
     # Save to HDF5
-    with h5py.File(os.path.join(dataset_output_dir, 'ambient_dist_and_PCA_results.h5'), 'w') as h5file:
-        h5file.create_dataset('X_PCA', data=X_pca_embedded)
-        h5file.create_dataset('X_HD', data=X_transformed)
+    with h5py.File(os.path.join(dataset_output_dir, "ambient_dist_and_PCA_results.h5"), "w") as h5file:
+        h5file.create_dataset("X_PCA", data=X_pca_embedded)
+        h5file.create_dataset("X_HD", data=X_transformed)
 
         if y_transformed is not None:
             y_pca_embedded = pca.transform(y_transformed)
             y_pca_embedded = y_pca_embedded[:, :n_components]
-            h5file.create_dataset('y_PCA', data=y_pca_embedded)
-            h5file.create_dataset('y_HD', data=y_transformed)
+            h5file.create_dataset("y_PCA", data=y_pca_embedded)
+            h5file.create_dataset("y_HD", data=y_transformed)
         else:
             y_pca_embedded = None
 
     return X_pca_embedded, y_pca_embedded, pca
 
 
-def prepare_data_for_method(X_transformed: np.ndarray, y_transformed: Optional[np.ndarray], method: str) -> Tuple[np.ndarray, Optional[np.ndarray]]:
+def prepare_data_for_method(
+    X_transformed: np.ndarray, y_transformed: np.ndarray | None, method: str
+) -> tuple[np.ndarray, np.ndarray | None]:
     """
     Prepare data for a specific dimensionality reduction method.
 
@@ -275,6 +276,3 @@ def prepare_data_for_method(X_transformed: np.ndarray, y_transformed: Optional[n
     """
 
     return X_transformed, y_transformed  # TODO: add method specific preprocessing if required
-
-
-

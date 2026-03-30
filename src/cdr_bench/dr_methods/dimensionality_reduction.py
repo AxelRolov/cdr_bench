@@ -1,14 +1,14 @@
-from sklearn.decomposition import PCA
-from openTSNE.sklearn import TSNE
-from umap import UMAP
-from chemographykit.gtm import GTM as ChemographyGTM
-from src.cdr_bench.optimization.params import DimReducerParams
+import logging
+from typing import Any
+
 import numpy as np
 import torch
-import logging
-from typing import Optional, Any, Dict
-from scipy.spatial.distance import pdist, squareform
+from chemographykit.gtm import GTM as ChemographyGTM
+from openTSNE.sklearn import TSNE
+from sklearn.decomposition import PCA
 from sklearn.neighbors import NearestNeighbors
+from src.cdr_bench.optimization.params import DimReducerParams
+from umap import UMAP
 
 logger = logging.getLogger(__name__)
 
@@ -17,8 +17,9 @@ def _get_tmap():
     """Lazy import for tmap. Requires conda install: conda install -c tmap tmap"""
     try:
         import tmap as tm
+
         # Verify this is the Reymond group TMAP (has LSHForest), not the PyPI 'tmap' package
-        if not hasattr(tm, 'LSHForest'):
+        if not hasattr(tm, "LSHForest"):
             raise ImportError(
                 "The installed 'tmap' package is not the Reymond group TMAP library. "
                 "Install via conda: conda install -c tmap tmap"
@@ -38,8 +39,9 @@ class TMAPWrapper:
     It does not support separate fit/transform steps.
     """
 
-    def __init__(self, k=10, node_size=1/26, mmm_repeats=2,
-                 sl_extra_scaling_steps=5, sl_scaling_type='RelativeToAvgLength'):
+    def __init__(
+        self, k=10, node_size=1 / 26, mmm_repeats=2, sl_extra_scaling_steps=5, sl_scaling_type="RelativeToAvgLength"
+    ):
         self.k = k
         self.node_size = node_size
         self.mmm_repeats = mmm_repeats
@@ -113,7 +115,7 @@ class TMAPWrapper:
         n_samples = X.shape[0]
 
         # Build k-NN graph
-        nn = NearestNeighbors(n_neighbors=k + 1, metric='euclidean')
+        nn = NearestNeighbors(n_neighbors=k + 1, metric="euclidean")
         nn.fit(X)
         distances, indices = nn.kneighbors(X)
 
@@ -131,14 +133,10 @@ class TMAPWrapper:
         return np.column_stack([np.array(x), np.array(y)])
 
     def fit(self, X, y=None):
-        raise NotImplementedError(
-            "TMAP does not support separate fit/transform steps. Use fit_transform() instead."
-        )
+        raise NotImplementedError("TMAP does not support separate fit/transform steps. Use fit_transform() instead.")
 
     def transform(self, X):
-        raise NotImplementedError(
-            "TMAP does not support transforming new data points. Use fit_transform() instead."
-        )
+        raise NotImplementedError("TMAP does not support transforming new data points. Use fit_transform() instead.")
 
 
 class DimReducer:
@@ -151,32 +149,31 @@ class DimReducer:
         self._initialize_model()
 
     @staticmethod
-    def default_params() -> Dict[str, Dict[str, Any]]:
+    def default_params() -> dict[str, dict[str, Any]]:
         """Returns default parameters for each method."""
         return {
-            'PCA': {'n_components': 2},
-            'UMAP': {'n_components': 2},
-            't-SNE': {'n_components': 2, 'verbose': False},
-            'GTM': {'num_nodes': 225, 'num_basis_functions': 25, 'basis_width': 1.1, 'reg_coeff': 1},
-            'TMAP': {'k': 10, 'node_size': 1/26, 'mmm_repeats': 2, 'sl_extra_scaling_steps': 5,
-                     'sl_scaling_type': 'RelativeToAvgLength'}
+            "PCA": {"n_components": 2},
+            "UMAP": {"n_components": 2},
+            "t-SNE": {"n_components": 2, "verbose": False},
+            "GTM": {"num_nodes": 225, "num_basis_functions": 25, "basis_width": 1.1, "reg_coeff": 1},
+            "TMAP": {
+                "k": 10,
+                "node_size": 1 / 26,
+                "mmm_repeats": 2,
+                "sl_extra_scaling_steps": 5,
+                "sl_scaling_type": "RelativeToAvgLength",
+            },
         }
 
     @staticmethod
-    def valid_methods() -> Dict[str, Any]:
+    def valid_methods() -> dict[str, Any]:
         """Returns valid methods for dimensionality reduction."""
-        return {
-            'PCA': PCA,
-            'UMAP': UMAP,
-            't-SNE': TSNE,
-            'GTM': ChemographyGTM,
-            'TMAP': TMAPWrapper
-        }
+        return {"PCA": PCA, "UMAP": UMAP, "t-SNE": TSNE, "GTM": ChemographyGTM, "TMAP": TMAPWrapper}
 
-    def _merge_params_with_defaults(self) -> Dict[str, Any]:
+    def _merge_params_with_defaults(self) -> dict[str, Any]:
         """Merge user parameters with default parameters."""
         default_params = self.default_params().get(self.method, {})
-        user_params = {k: v for k, v in self.params.__dict__.items() if v is not None and k != 'method'}
+        user_params = {k: v for k, v in self.params.__dict__.items() if v is not None and k != "method"}
         merged_params = {**default_params, **user_params}
         return merged_params
 
@@ -185,11 +182,12 @@ class DimReducer:
         model_class = self.valid_methods().get(self.method, None)
         if not model_class:
             raise ValueError(
-                f"Invalid method '{self.method}'. Supported methods are: {', '.join(self.valid_methods().keys())}")
+                f"Invalid method '{self.method}'. Supported methods are: {', '.join(self.valid_methods().keys())}"
+            )
 
-        if self.method == 'GTM':
+        if self.method == "GTM":
             self.model = self._gtm_preprocessing()
-        elif self.method == 'TMAP':
+        elif self.method == "TMAP":
             self.model = TMAPWrapper(**self.model_params)
         else:
             self.model = model_class(**self.model_params)
@@ -203,13 +201,13 @@ class DimReducer:
         self.model_params.update(new_params)
         self._initialize_model()
 
-    def fit(self, X: np.ndarray, y: Optional[np.ndarray] = None):
+    def fit(self, X: np.ndarray, y: np.ndarray | None = None):
         """Fit the model."""
-        if self.method == 'TMAP':
+        if self.method == "TMAP":
             raise NotImplementedError(
                 "TMAP does not support separate fit/transform steps. Use fit_transform() instead."
             )
-        if self.method == 'GTM':
+        if self.method == "GTM":
             self.model.fit(torch.tensor(X, dtype=torch.float64))
         else:
             self.model.fit(X, y)
@@ -217,26 +215,27 @@ class DimReducer:
 
     def transform(self, X: np.ndarray) -> np.ndarray:
         """Transform the data."""
-        if self.method == 'TMAP':
+        if self.method == "TMAP":
             raise NotImplementedError(
                 "TMAP does not support transforming new data points. Use fit_transform() instead."
             )
-        if self.method == 'GTM':
+        if self.method == "GTM":
             return self.model.transform(torch.tensor(X, dtype=torch.float64)).detach().numpy()
         return self.model.transform(X)
 
-    def fit_transform(self, X: np.ndarray, y: Optional[np.ndarray] = None) -> np.ndarray:
+    def fit_transform(self, X: np.ndarray, y: np.ndarray | None = None) -> np.ndarray:
         """Fit and transform the data."""
-        if self.method == 'TMAP':
+        if self.method == "TMAP":
             return self.model.fit_transform(X)
-        if self.method == 'GTM':
+        if self.method == "GTM":
             return self.model.fit_transform(torch.tensor(X, dtype=torch.float64)).detach().numpy()
         return self.model.fit_transform(X, y)
 
     @staticmethod
     def check_method_implemented(method: str):
         """Check if the given method is implemented."""
-        implemented_methods = ['PCA', 't-SNE', 'UMAP', 'GTM', 'TMAP']
+        implemented_methods = ["PCA", "t-SNE", "UMAP", "GTM", "TMAP"]
         if method not in implemented_methods:
             raise ValueError(
-                f"Method '{method}' is not implemented. Available methods: {', '.join(implemented_methods)}")
+                f"Method '{method}' is not implemented. Available methods: {', '.join(implemented_methods)}"
+            )

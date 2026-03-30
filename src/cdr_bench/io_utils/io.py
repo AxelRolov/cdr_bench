@@ -1,50 +1,49 @@
 import logging
+import os
 import pickle
+from collections import defaultdict
 from pathlib import Path
-from typing import List, Union, Dict, Any, Tuple
+from typing import Any
 
 import h5py
 import numpy as np
 import pandas as pd
-
-from collections import defaultdict
-
 import toml
-import os
 
 logger = logging.getLogger(__name__)
 
-def check_hdf5_file_format(file_path):
-    required_dataset_group = ['dataset', 'smi']
-    required_groups = ['dataset', 'features']
 
-    with h5py.File(file_path, 'r') as h5file:
+def check_hdf5_file_format(file_path):
+    required_dataset_group = ["dataset", "smi"]
+    required_groups = ["dataset", "features"]
+
+    with h5py.File(file_path, "r") as h5file:
         # Check for required groups
         if not all(group in h5file.keys() for group in required_groups):
             raise ValueError(f"HDF5 file must contain groups: {required_groups}")
 
         # Check for required datasets in 'dataset' group
-        dataset_group = h5file['dataset']
+        dataset_group = h5file["dataset"]
         if not all(ds in dataset_group.keys() for ds in required_dataset_group):
             raise ValueError(f"'dataset' group must contain datasets: {required_dataset_group}")
 
         # Check if 'features' group exists
-        if 'features' not in h5file.keys():
-            raise ValueError(f"HDF5 file must contain a 'features' group")
+        if "features" not in h5file.keys():
+            raise ValueError("HDF5 file must contain a 'features' group")
 
 
 def read_features_hdf5_dataframe(file_path):
-    with h5py.File(file_path, 'r') as h5file:
+    with h5py.File(file_path, "r") as h5file:
         # Read dataset and smi
-        dataset = pd.Series(h5file['dataset']['dataset'][:], name='dataset')
-        smi = pd.Series(h5file['dataset']['smi'][:], name='smi')
+        dataset = pd.Series(h5file["dataset"]["dataset"][:], name="dataset")
+        smi = pd.Series(h5file["dataset"]["smi"][:], name="smi")
 
         # Initialize a dictionary to hold the features
         features = {}
 
         # Read all feature datasets
-        for feature_name in h5file['features']:
-            features[feature_name] = pd.DataFrame(h5file['features'][feature_name][:])
+        for feature_name in h5file["features"]:
+            features[feature_name] = pd.DataFrame(h5file["features"][feature_name][:])
 
     # Combine dataset and smi
     combined_df = pd.concat([dataset, smi], axis=1)
@@ -56,7 +55,7 @@ def read_features_hdf5_dataframe(file_path):
     return combined_df
 
 
-def load_features(features_file: Path) -> List:
+def load_features(features_file: Path) -> list:
     """
     Load features from a .pkl file.
 
@@ -74,10 +73,10 @@ def load_features(features_file: Path) -> List:
         raise FileNotFoundError(f"The file {features_file} does not exist.")
 
     try:
-        with open(features_file, 'rb') as f:
+        with open(features_file, "rb") as f:
             features = pickle.load(f)
-    except IOError as e:
-        raise IOError(f"Error loading features from {features_file}: {e}")
+    except OSError as e:
+        raise OSError(f"Error loading features from {features_file}: {e}")
 
     return features
 
@@ -94,9 +93,9 @@ def load_hdf5_data(file_name, method_names):
     pd.DataFrame: The loaded DataFrame.
     list of np.array: The list of loaded arrays of coordinates.
     """
-    with pd.HDFStore(file_name, mode='r') as store:
+    with pd.HDFStore(file_name, mode="r") as store:
         # Load the DataFrame
-        df = store['dataframe']
+        df = store["dataframe"]
 
         # Load each array of coordinates
         coordinates = [store[name].values for name in method_names]
@@ -117,22 +116,23 @@ def read_method_optimization_stats(folder: str, descriptor: str, method: str) ->
         pd.DataFrame: DataFrame containing combined data from all GTM_results.h5 files.
     """
     all_data = []
-    file_path = os.path.join(folder, descriptor, f'{method}_results.h5')
+    file_path = os.path.join(folder, descriptor, f"{method}_results.h5")
     if os.path.exists(file_path):
-        if method == 'GTM':
-            with h5py.File(file_path, 'r') as f:
-                all_scores = f['all_scores/score'][:]
-                basis_width = f['all_scores/basis_width'][:]
-                num_basis_functions = f['all_scores/num_basis_functions'][:]
-                num_nodes = f['all_scores/num_nodes'][:]
-                reg_coeff = f['all_scores/reg_coeff'][:]
+        if method == "GTM":
+            with h5py.File(file_path, "r") as f:
+                all_scores = f["all_scores/score"][:]
+                basis_width = f["all_scores/basis_width"][:]
+                num_basis_functions = f["all_scores/num_basis_functions"][:]
+                num_nodes = f["all_scores/num_nodes"][:]
+                reg_coeff = f["all_scores/reg_coeff"][:]
 
                 for i in range(len(all_scores)):
                     all_data.append((basis_width[i], num_basis_functions[i], num_nodes[i], reg_coeff[i], all_scores[i]))
 
-    return pd.DataFrame(all_data, columns=['basis_width', 'num_basis_functions', 'num_nodes', 'reg_coeff', 'score'])
+    return pd.DataFrame(all_data, columns=["basis_width", "num_basis_functions", "num_nodes", "reg_coeff", "score"])
 
-def read_ambient_dist_and_pca_results(file_path: str) -> Dict[str, Any]:
+
+def read_ambient_dist_and_pca_results(file_path: str) -> dict[str, Any]:
     """
     Reads the ambient distance and PCA results from the provided HDF5 file.
 
@@ -142,22 +142,27 @@ def read_ambient_dist_and_pca_results(file_path: str) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: A dictionary containing the ambient distance and PCA results.
     """
-    results: Dict[str, Any] = {}
+    results: dict[str, Any] = {}
 
-    with h5py.File(file_path, 'r') as h5file:
-        results['X_PCA'] = h5file['X_PCA'][:]
-        results['X_HD'] = h5file['X_HD'][:]
+    with h5py.File(file_path, "r") as h5file:
+        results["X_PCA"] = h5file["X_PCA"][:]
+        results["X_HD"] = h5file["X_HD"][:]
 
         # Check if 'y_PCA' and 'y_HD' exist in the file
-        if 'y_PCA' in h5file:
-            results['y_PCA'] = h5file['y_PCA'][:]
-        if 'y_HD' in h5file:
-            results['y_HD'] = h5file['y_HD'][:]
+        if "y_PCA" in h5file:
+            results["y_PCA"] = h5file["y_PCA"][:]
+        if "y_HD" in h5file:
+            results["y_HD"] = h5file["y_HD"][:]
 
     return results
 
-def save_dataframe_to_hdf5(df: pd.DataFrame, file_path: str, non_feature_columns: Union[List[str], Dict[str, str]],
-                           feature_columns: Union[List[str], Dict[str, str]]) -> None:
+
+def save_dataframe_to_hdf5(
+    df: pd.DataFrame,
+    file_path: str,
+    non_feature_columns: list[str] | dict[str, str],
+    feature_columns: list[str] | dict[str, str],
+) -> None:
     """
     Save a DataFrame to an HDF5 file with a hierarchical structure.
 
@@ -170,20 +175,20 @@ def save_dataframe_to_hdf5(df: pd.DataFrame, file_path: str, non_feature_columns
     Returns:
         None
     """
-    with h5py.File(file_path, 'w') as hf:
+    with h5py.File(file_path, "w") as hf:
         # Create a group for the dataset
-        dataset_group = hf.create_group('dataset')
+        dataset_group = hf.create_group("dataset")
 
         # Save non-feature columns
         if isinstance(non_feature_columns, dict):
             for key, col in non_feature_columns.items():
-                dataset_group.create_dataset(key, data=df[col].values.astype('S'))
+                dataset_group.create_dataset(key, data=df[col].values.astype("S"))
         else:
             for col in non_feature_columns:
-                dataset_group.create_dataset(col, data=df[col].values.astype('S'))
+                dataset_group.create_dataset(col, data=df[col].values.astype("S"))
 
         # Create a group for features
-        features_group = hf.create_group('features')
+        features_group = hf.create_group("features")
 
         # Save feature columns
         if isinstance(feature_columns, dict):
@@ -206,14 +211,14 @@ def load_optimization_results(file_path: str):
     Returns:
         Any: The best model object.
     """
-    with h5py.File(file_path, 'r') as f:
-        model_data = f['best_model'][()]
+    with h5py.File(file_path, "r") as f:
+        model_data = f["best_model"][()]
         best_model = pickle.loads(model_data.tobytes())
 
     return best_model
 
 
-def save_dict_to_hdf5(h5file, data, path=''):
+def save_dict_to_hdf5(h5file, data, path=""):
     """
     Save a dictionary of NumPy arrays, lists, tuples of lists/arrays, and floats to an HDF5 file.
 
@@ -223,7 +228,7 @@ def save_dict_to_hdf5(h5file, data, path=''):
     path (str): The path within the HDF5 file where the dictionary will be saved.
     """
     for key, item in data.items():
-        full_key = f'{path}/{key}' if path else key
+        full_key = f"{path}/{key}" if path else key
         if isinstance(item, (np.ndarray, np.generic)):
             h5file.create_dataset(full_key, data=item)
         elif isinstance(item, list):
@@ -234,9 +239,9 @@ def save_dict_to_hdf5(h5file, data, path=''):
             tuple_group = h5file.create_group(full_key)
             for idx, sub_item in enumerate(item):
                 if idx == 0:
-                    sub_key = 'mean'
+                    sub_key = "mean"
                 else:
-                    sub_key = 'std'
+                    sub_key = "std"
                 if isinstance(sub_item, (np.ndarray, np.generic)):
                     tuple_group.create_dataset(sub_key, data=sub_item)
                 elif isinstance(sub_item, list):
@@ -249,8 +254,9 @@ def save_dict_to_hdf5(h5file, data, path=''):
             raise ValueError(f"Unsupported data type for key '{key}': {type(item)}")
 
 
-def read_optimization_results(file_name: str, feature_name: str, method_names: List[str]) -> Tuple[
-    pd.DataFrame, np.ndarray, Dict[str, Dict[str, Any]]]:
+def read_optimization_results(
+    file_name: str, feature_name: str, method_names: list[str]
+) -> tuple[pd.DataFrame, np.ndarray, dict[str, dict[str, Any]]]:
     """
     Read the optimization results from an HDF5 file.
 
@@ -267,15 +273,15 @@ def read_optimization_results(file_name: str, feature_name: str, method_names: L
     """
     results = {}
 
-    with h5py.File(file_name, 'r') as h5file:
+    with h5py.File(file_name, "r") as h5file:
         # Read the DataFrame
-        df_group = h5file['dataframe']
+        df_group = h5file["dataframe"]
         df_data = {column: df_group[column][:] for column in df_group}
         df = pd.DataFrame(df_data)
 
         # Convert bytes to strings for object dtype columns
-        for column in df.select_dtypes(include=['object']).columns:
-            df[column] = df[column].str.decode('utf-8')
+        for column in df.select_dtypes(include=["object"]).columns:
+            df[column] = df[column].str.decode("utf-8")
 
         # Read the feature array if it exists
         if feature_name in h5file:
@@ -288,7 +294,7 @@ def read_optimization_results(file_name: str, feature_name: str, method_names: L
         # Extract metrics and coordinates from the HDF5 file
         # Extract metrics and coordinates from the HDF5 file
         for method in method_names:
-            metrics_group = h5file[f'{method}_metrics']
+            metrics_group = h5file[f"{method}_metrics"]
             metrics = {}
             for metric in metrics_group:
                 if isinstance(metrics_group[metric], h5py.Dataset):
@@ -297,12 +303,14 @@ def read_optimization_results(file_name: str, feature_name: str, method_names: L
                     else:
                         metrics[metric] = metrics_group[metric][:]
                 else:  # Assuming it's a group with 'mean' and 'std' datasets
-                    metrics[metric] = (metrics_group[metric]['mean'][()], metrics_group[metric]['std'][()])
+                    metrics[metric] = (metrics_group[metric]["mean"][()], metrics_group[metric]["std"][()])
 
-            coordinates = h5file[f'{method}_coordinates'][:]
-            results[method] = {'metrics': metrics, 'coordinates': coordinates}
+            coordinates = h5file[f"{method}_coordinates"][:]
+            results[method] = {"metrics": metrics, "coordinates": coordinates}
 
     return df, fp_array, results
+
+
 def save_optimization_results(df: pd.DataFrame, results: defaultdict, file_name: str, feature_name: str):
     """
     Save DataFrame and corresponding arrays of coordinates to a single HDF5 file.
@@ -326,14 +334,14 @@ def save_optimization_results(df: pd.DataFrame, results: defaultdict, file_name:
     else:
         fp_array = None
 
-    with h5py.File(file_name, 'w') as h5file:
+    with h5py.File(file_name, "w") as h5file:
         # Save the DataFrame without the feature column
-        df_group = h5file.create_group('dataframe')
+        df_group = h5file.create_group("dataframe")
         for column in df.columns:
             # Convert to string type if column is of object dtype
             data = df[column].values
-            if data.dtype == 'O':
-                data = data.astype('S')
+            if data.dtype == "O":
+                data = data.astype("S")
             df_group.create_dataset(column, data=data, compression="gzip")
 
         # Save the 'fp' numpy array separately if it exists
@@ -342,9 +350,9 @@ def save_optimization_results(df: pd.DataFrame, results: defaultdict, file_name:
 
         # Save each array of coordinates and metrics
         for method, result in results.items():
-            metrics_group = h5file.create_group(f'{method}_metrics')
+            metrics_group = h5file.create_group(f"{method}_metrics")
             save_dict_to_hdf5(metrics_group, result.metrics)
-            h5file.create_dataset(f'{method}_coordinates', data=result.coordinates, compression="gzip")
+            h5file.create_dataset(f"{method}_coordinates", data=result.coordinates, compression="gzip")
 
 
 def csv_2_df(file_path: str) -> pd.DataFrame:
@@ -362,7 +370,7 @@ def csv_2_df(file_path: str) -> pd.DataFrame:
     """
     data_df = pd.read_csv(file_path)
 
-    if 'smi' not in data_df.columns:
+    if "smi" not in data_df.columns:
         raise ValueError(f"'smi' column not found in the dataset {file_path}")
 
     return data_df
@@ -378,14 +386,14 @@ def load_fp_array(file_path: str) -> np.ndarray:
     Returns:
         np.ndarray: Fingerprint array.
     """
-    with h5py.File(file_path, 'r') as h5file:
-        fp_array = h5file['fp'][()] if 'fp' in h5file else None
+    with h5py.File(file_path, "r") as h5file:
+        fp_array = h5file["fp"][()] if "fp" in h5file else None
     return fp_array
 
 
 def load_config(config_file: str) -> dict:
     """Load the configuration from a TOML file."""
-    with open(config_file, 'r') as f:
+    with open(config_file) as f:
         config = toml.load(f)
     return config
 
@@ -412,7 +420,7 @@ def validate_config(config: dict) -> None:
         "similarity_metric": str,
         "sample_size": int,
         "test": bool,
-        "plot_data": bool
+        "plot_data": bool,
     }
 
     # Check if all required keys are present
