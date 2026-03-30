@@ -47,3 +47,58 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
 ]
+test = [
+    "pytest>=8.0",
+    "pytest-cov>=6.0",
+    "pytest-mock>=3.14",
+    "pytest-xdist>=3.5",
+]
+lint = [
+    "ruff>=0.9",
+    "pre-commit>=4.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks integration tests",
+    "requires_rdkit: skip if rdkit unavailable",
+    "requires_numba: skip if numba unavailable",
+    "requires_gpu: skip if CUDA unavailable",
+    "requires_tmap: skip if tmap unavailable",
+    "requires_chemographykit: skip if chemographykit unavailable",
+]
+addopts = ["-ra", "--strict-markers", "--tb=short"]
+filterwarnings = [
+    "ignore::DeprecationWarning:numba",
+    "ignore::FutureWarning:sklearn",
+]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["B011", "SIM300"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["cdr_bench"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.coverage.run]
+source = ["src/cdr_bench"]
+omit = ["*/visualization/*", "*/chemdist_features.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true
