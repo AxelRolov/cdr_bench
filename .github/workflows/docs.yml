@@ -5,7 +5,8 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: pages
@@ -14,10 +15,11 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
 
       - uses: astral-sh/setup-uv@v7
         with:
@@ -29,10 +31,14 @@ jobs:
       - name: Install dependencies
         run: uv sync --only-group docs
 
-      - name: Configure git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
+      - name: Build docs
+        run: uv run mkdocs build --strict
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/
 
       - name: Deploy to GitHub Pages
-        run: uv run mkdocs gh-deploy --force
+        id: deployment
+        uses: actions/deploy-pages@v4
