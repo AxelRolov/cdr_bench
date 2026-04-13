@@ -31,11 +31,15 @@ requires-python = "==3.11.*"
 readme = "README.md"
 license = {text = "MIT"}
 
+[project.optional-dependencies]
+gpu = [
+    "cupy-cuda12x>=13.3",
+]
 
 [tool.pdm]
 distribution = false
 
-[tool.pdm.dev-dependencies]
+[dependency-groups]
 dev = [
     "cdr-bench @ file:///${PROJECT_ROOT}/",
     "jupyterlab>=4.2.5",
