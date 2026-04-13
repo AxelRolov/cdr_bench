@@ -27,11 +27,24 @@ _SCORING_EXPORTS = {
     "DRScorer",
 }
 
-__all__ = sorted(_SCORING_EXPORTS)
+_TILED_EXPORTS = {
+    "compute_fp_squared_norms",
+    "exact_tanimoto_topk_from_block",
+    "resolve_tanimoto_backend",
+    "streaming_exact_topk",
+    "tanimoto_similarity_matrix_batch",
+    "topk_1d",
+    "topk_matrix",
+}
+
+__all__ = sorted(_SCORING_EXPORTS | _TILED_EXPORTS)
 
 
 def __getattr__(name: str):
     if name in _SCORING_EXPORTS:
         module = import_module(".scoring", __name__)
+        return getattr(module, name)
+    if name in _TILED_EXPORTS:
+        module = import_module(".scoring_tiled", __name__)
         return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
