@@ -1,3 +1,5 @@
+
+
 <p align="center">
   <img src="assets/banner.png" alt="CDR Bench — Chemical Data Dimensionality Reduction Benchmarking Framework" width="800">
 </p>
@@ -31,6 +33,7 @@ Requires Python 3.11 and [uv](https://docs.astral.sh/uv/).
 ```bash
 git clone https://github.com/AxelRolov/cdr_bench.git
 cd cdr_bench
+uv python install 3.11
 uv sync
 ```
 
